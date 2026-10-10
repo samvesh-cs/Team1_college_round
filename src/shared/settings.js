@@ -79,9 +79,9 @@ export async function saveSettings(settings) {
 }
 
 const NUMERIC_RANGES = {
-  sensitivity: [5, 30],
-  smoothing: [0.1, 0.8],
-  deadZone: [0.01, 0.1],
+  sensitivity: [1, 30],
+  smoothing: [0.1, 0.95],
+  deadZone: [0.005, 0.1],
   dwellDuration: [500, 3000],
 };
 

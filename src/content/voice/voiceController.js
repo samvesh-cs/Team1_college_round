@@ -44,6 +44,8 @@ export class VoiceController {
       }
     };
 
+    let errorCooldown = false;
+
     this.recognition.onend = () => {
       this.listening = false;
       // Auto-restart if it stopped by itself (e.g. silence timeout) while
@@ -61,6 +63,11 @@ export class VoiceController {
         this.enabled = false;
         this._clearRestartTimer();
         this.overlay.hide();
+      } else if (event.error === "network") {
+        console.warn(
+          "[Handsfree] Speech recognition network error. In Brave, Google Speech Services are blocked by default. You can enable them under brave://settings/system ('Use Google services for speech recognition') or test in standard Google Chrome."
+        );
+        this.overlay.flashCommand("Voice blocked in Brave: enable in brave://settings/system");
       }
     };
 
@@ -302,6 +309,14 @@ export class VoiceController {
         this._clickCursorTarget();
         this.overlay.flashCommand("click");
         break;
+      case "CALIBRATE":
+        if (window.__handsfree_calibration_overlay) {
+          window.__handsfree_calibration_overlay.show();
+        } else if (window.__handsfree_cursor) {
+          window.__handsfree_cursor.calibrate();
+        }
+        this.overlay.flashCommand("calibrated");
+        break;
       // These will be wired up properly in WS-3 and WS-1 later, but we can emit messages or call APIs
       case "PAUSE_CURSOR":
       case "RESUME_CURSOR":
@@ -324,8 +339,10 @@ export class VoiceController {
   _clickCursorTarget() {
     // Read coordinates from WS-1 global
     const cursor = window.__handsfree_cursor;
-    if (cursor && cursor.x !== undefined && cursor.y !== undefined) {
-      const element = document.elementFromPoint(cursor.x, cursor.y);
+    const x = cursor?.currentX ?? cursor?.x;
+    const y = cursor?.currentY ?? cursor?.y;
+    if (typeof x === "number" && typeof y === "number") {
+      const element = document.elementFromPoint(x, y);
       if (element) {
         element.click();
       }

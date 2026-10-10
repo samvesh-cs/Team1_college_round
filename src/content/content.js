@@ -4,9 +4,11 @@ import { CursorController } from "./cursor/cursorController.js";
 import { VoiceController } from "./voice/voiceController.js";
 import { DwellController } from "./activation/dwellController.js";
 import { TargetManager } from "./activation/targetManager.js";
+import { CalibrationOverlay } from "./calibration/calibrationOverlay.js";
 import "./styles/overlay.css";
 import "./styles/voice-overlay.css";
 import "./styles/activation-overlay.css";
+import "./styles/calibration-overlay.css";
 
 console.log("[Handsfree] Content script loaded.");
 
@@ -37,6 +39,10 @@ if (!window.__handsfree_content_initialized) {
   cursor = new CursorController();
   window.__handsfree_cursor = cursor;
 
+  // === Calibration Studio Overlay ===
+  const calibrationOverlay = new CalibrationOverlay(cursor);
+  window.__handsfree_calibration_overlay = calibrationOverlay;
+
   // === WS-2: Voice Controller ===
   voiceController = new VoiceController();
   window.__handsfree_voice = voiceController;
@@ -57,6 +63,12 @@ if (!window.__handsfree_content_initialized) {
       }
       if (typeof settings.smoothing === "number" && typeof cursor.setSmoothing === "function") {
         cursor.setSmoothing(settings.smoothing);
+      }
+      if (typeof settings.deadZone === "number" && typeof cursor.setDeadZone === "function") {
+        cursor.setDeadZone(settings.deadZone);
+      }
+      if (typeof settings.intentLockEnabled === "boolean" && typeof cursor.setIntentLock === "function") {
+        cursor.setIntentLock(settings.intentLockEnabled);
       }
       if (typeof settings.dwellDuration === "number" && typeof dwellController.setDwellDuration === "function") {
         dwellController.setDwellDuration(settings.dwellDuration);
@@ -139,13 +151,14 @@ if (!window.__handsfree_content_initialized) {
 
   rafId = requestAnimationFrame(renderLoop);
 
-  // Clean up on page unload
-  window.addEventListener("unload", () => {
+  // Clean up on page navigation/hide
+  window.addEventListener("pagehide", () => {
     if (rafId) {
       cancelAnimationFrame(rafId);
       rafId = null;
     }
     cursor.stop();
+    calibrationOverlay.hide();
     voiceController.stop();
     dwellController.destroy();
     targetManager.destroy();
@@ -205,6 +218,7 @@ if (!window.__handsfree_content_initialized) {
 
       case MSG.STOP_TRACKING:
         cursor.stop();
+        calibrationOverlay.hide();
         dwellController.stop();
         sendResponse({ ok: true, status: "stopped" });
         break;
@@ -222,7 +236,11 @@ if (!window.__handsfree_content_initialized) {
         break;
 
       case MSG.CALIBRATE:
-        cursor.calibrate();
+        if (message.quick) {
+          cursor.calibrate();
+        } else {
+          calibrationOverlay.show();
+        }
         dwellController.resetDwell();
         sendResponse({ ok: true, status: "calibrated" });
         break;
@@ -267,8 +285,11 @@ if (!window.__handsfree_content_initialized) {
           voice: voiceController.enabled,
           listening: voiceController.listening,
           yielded: voiceController.yielded,
-          fps: 60,
-          calibrated: true,
+          fps: cursor.isTracking ? 30 : 0,
+          calibrated: cursor.isCalibrated,
+          neutral: cursor.getNeutralPoint ? cursor.getNeutralPoint() : { x: 0.5, y: 0.5 },
+          dx: cursor.lastDx ?? 0,
+          dy: cursor.lastDy ?? 0,
           settings: { ...currentSettings },
           rev: lastAppliedRev,
           controllersAvailable: true,
@@ -314,7 +335,10 @@ if (!window.__handsfree_content_initialized) {
       }
 
       case MSG.CLICK_TARGET: {
-        const targetNum = message.payload?.number ?? message.number ?? message.targetNumber;
+        const targetNum =
+          (typeof message.payload === "number" ? message.payload : message.payload?.number) ??
+          message.number ??
+          message.targetNumber;
         const result = targetManager.activateTarget(targetNum);
         sendResponse({ ok: result.success, ...result });
         break;

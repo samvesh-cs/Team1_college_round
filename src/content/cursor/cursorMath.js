@@ -31,16 +31,41 @@ export function getDelta(currentX, currentY) {
 }
 
 /**
+ * Get the current calibrated neutral reference position.
+ * @returns {{ x: number, y: number }}
+ */
+export function getNeutral() {
+  return { x: neutralX, y: neutralY };
+}
+
+/**
  * Suppress micro-jitter by ignoring deltas below a threshold.
+ * Supports continuous ramp out of the dead zone to prevent sudden cursor jumps.
  * @param {number} delta - Displacement value
  * @param {number} deadZone - Threshold below which movement is ignored
- * @returns {number} 0 if inside deadzone, otherwise original delta
+ * @param {boolean} [continuous=false] - If true, ramps continuously from 0 at the threshold
+ * @returns {number} 0 if inside deadzone, otherwise smoothed or original delta
  */
-export function applyDeadZone(delta, deadZone) {
-  if (Math.abs(delta) <= deadZone) {
+export function applyDeadZone(delta, deadZone, continuous = false) {
+  const abs = Math.abs(delta);
+  if (abs <= deadZone) {
     return 0;
   }
-  return delta;
+  return continuous ? Math.sign(delta) * (abs - deadZone) : delta;
+}
+
+/**
+ * Convenience helper for continuous dead zone (avoids step discontinuity jump).
+ * @param {number} delta - Displacement value
+ * @param {number} deadZone - Threshold
+ * @returns {number}
+ */
+export function applyContinuousDeadZone(delta, deadZone) {
+  const abs = Math.abs(delta);
+  if (abs <= deadZone) {
+    return 0;
+  }
+  return Math.sign(delta) * (abs - deadZone);
 }
 
 /**

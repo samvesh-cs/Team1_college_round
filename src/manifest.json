@@ -17,10 +17,22 @@
       "js": ["src/content/content.js"],
       "css": [
         "src/content/styles/overlay.css",
-        "src/content/styles/voice-overlay.css"
+        "src/content/styles/voice-overlay.css",
+        "src/content/styles/activation-overlay.css",
+        "src/content/styles/calibration-overlay.css"
       ],
       "run_at": "document_idle"
     }
   ],
-  "permissions": ["activeTab", "storage", "offscreen"]
+  "permissions": ["activeTab", "storage", "offscreen", "tabs", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["mediapipe-wasm/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

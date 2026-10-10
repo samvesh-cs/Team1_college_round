@@ -27,8 +27,8 @@ export default function App() {
   // Calibration state
   const [calibrationStep, setCalibrationStep] = useState(3);
   const [dwellTime, setDwellTime] = useState(1200);
-  const [smoothingFactor, setSmoothingFactor] = useState(0.3);
-  const [sensitivity, setSensitivity] = useState(15);
+  const [smoothingFactor, setSmoothingFactor] = useState(0.75);
+  const [sensitivity, setSensitivity] = useState(4.5);
   const [deadZone, setDeadZone] = useState(0.02);
   const [statusError, setStatusError] = useState(null);
   const [saveError, setSaveError] = useState(null);
@@ -546,9 +546,9 @@ export default function App() {
                 <input
                   id="handsfree-sensitivity"
                   type="range"
-                  min="5"
-                  max="30"
-                  step="1"
+                  min="1"
+                  max="20"
+                  step="0.5"
                   value={sensitivity}
                   onChange={(e) => {
                     applyLocalUpdate({ sensitivity: Number(e.target.value) });
@@ -565,7 +565,7 @@ export default function App() {
                   id="handsfree-smoothing"
                   type="range"
                   min="0.1"
-                  max="0.8"
+                  max="0.95"
                   step="0.05"
                   value={smoothingFactor}
                   onChange={(e) => {
@@ -582,7 +582,7 @@ export default function App() {
                 <input
                   id="handsfree-deadzone"
                   type="range"
-                  min="0.01"
+                  min="0.005"
                   max="0.1"
                   step="0.005"
                   value={deadZone}
@@ -615,8 +615,11 @@ export default function App() {
             {/* Quick Calibration Banner */}
             <div
               onClick={() => {
-                setActiveTab('calibration');
+                send(MSG.START_TRACKING);
                 send(MSG.CALIBRATE);
+                setTimeout(() => {
+                  try { window.close(); } catch (_) {}
+                }, 150);
               }}
               className="p-2.5 rounded-xl bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200/80 flex items-center justify-between cursor-pointer hover:border-teal-300 transition-all shadow-xs"
             >
@@ -628,12 +631,12 @@ export default function App() {
                   </svg>
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">Calibration Studio</h4>
-                  <p className="text-[10px] text-slate-600">5-point gaze &amp; face mesh calibration</p>
+                  <h4 className="text-xs font-bold text-slate-900">Open Calibration Studio</h4>
+                  <p className="text-[10px] text-slate-600">Live webcam · 3-sec countdown · Alt+C shortcut</p>
                 </div>
               </div>
               <span className="text-xs text-teal-700 font-bold flex items-center gap-1">
-                Open &rarr;
+                Launch &rarr;
               </span>
             </div>
           </div>
@@ -641,190 +644,102 @@ export default function App() {
 
         {/* ================= TAB 2: CALIBRATION ================= */}
         {activeTab === 'calibration' && (
+          /* Real interactive calibration is the on-screen overlay launched on the active tab */
           <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xs font-bold text-slate-900">Webcam Calibration HUD</h3>
-                <p className="text-[10px] text-slate-500">Fixate gaze on targets to lock accuracy</p>
-              </div>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200 font-bold">
-                Step {calibrationStep}/5
-              </span>
+            <div>
+              <h3 className="text-xs font-bold text-slate-900">Calibration Studio</h3>
+              <p className="text-[10px] text-slate-500 mt-0.5">Opens a full-screen guided calibration overlay with live webcam feed on your active tab.</p>
             </div>
 
-            {/* Interactive Cyber Camera HUD Viewport */}
-            <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner flex items-center justify-center">
-              {/* Cyber Grid */}
-              <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#06b6d425_1px,transparent_1px),linear-gradient(to_bottom,#06b6d425_1px,transparent_1px)] bg-[size:16px_16px]"></div>
-
-              {/* Scanline */}
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent animate-shimmer pointer-events-none opacity-40"></div>
-
-              {/* HUD Corner Brackets */}
-              <div className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-teal-400"></div>
-              <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-teal-400"></div>
-              <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-teal-400"></div>
-              <div className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-teal-400"></div>
-
-              {/* Top HUD Badges */}
-              <div className="absolute top-2.5 left-3 flex items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-900/90 border border-teal-400/50 text-[9px] font-mono font-semibold text-teal-300">
-                  <span className="w-1 h-1 rounded-full bg-teal-400 animate-ping"></span>
-                  AI: LOCKED
-                </span>
-                <span className="px-1.5 py-0.5 rounded bg-slate-900/90 border border-slate-700 text-[9px] font-mono text-slate-300">
-                  99.4%
-                </span>
+            {/* Calibration Launch Card */}
+            <div className="relative w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner flex flex-col items-center justify-center py-7 px-5 gap-3.5">
+              {/* Animated face guide preview */}
+              <div className="w-20 h-20 rounded-full border-2 border-cyan-500/60 bg-slate-900 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                <svg className="w-10 h-10 text-cyan-400" fill="none" viewBox="0 0 200 240">
+                  <ellipse cx="100" cy="120" opacity="0.7" rx="58" ry="82" stroke="currentColor" strokeDasharray="4 3" strokeWidth="3"/>
+                  <circle cx="75" cy="105" fill="currentColor" r="6" opacity="0.8"/>
+                  <circle cx="125" cy="105" fill="currentColor" r="6" opacity="0.8"/>
+                  <polyline fill="none" points="100,105 100,130 95,140 105,140" stroke="currentColor" strokeWidth="2.5"/>
+                  <ellipse cx="100" cy="162" fill="currentColor" rx="13" ry="4" opacity="0.6"/>
+                </svg>
               </div>
 
-              {/* Target 1: Top-Left */}
-              <div
-                onClick={() => setCalibrationStep(1)}
-                className="absolute top-5 left-6 cursor-pointer"
-              >
-                <div
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[9px] font-mono font-bold ${calibrationStep > 1
-                      ? 'border-teal-400 bg-teal-500/20 text-teal-300'
-                      : calibrationStep === 1
-                        ? 'border-cyan-400 bg-cyan-500/30 text-white animate-pulse'
-                        : 'border-slate-600 bg-slate-900 text-slate-400'
-                    }`}
+              <div className="text-center">
+                <p className="text-white text-xs font-bold mb-1">Live webcam overlay</p>
+                <p className="text-slate-400 text-[10px] leading-relaxed">
+                  Opens on the current web page with your camera feed.<br/>
+                  Popup will close so you can see the alignment reticle.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-1.5 w-full">
+                <button
+                  type="button"
+                  onClick={() => {
+                    send(MSG.START_TRACKING);
+                    send(MSG.CALIBRATE);
+                    setTimeout(() => {
+                      try { window.close(); } catch (_) {}
+                    }, 150);
+                  }}
+                  className="w-full py-2 px-4 rounded-lg bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-bold text-xs transition-all shadow-md shadow-teal-600/25 flex items-center justify-center gap-2"
                 >
-                  {calibrationStep > 1 ? '✓' : '1'}
-                </div>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M3 12h3m12 0h3M12 3v3m0 12v3" strokeLinecap="round"/>
+                  </svg>
+                  Launch Calibration Studio
+                </button>
+                <p className="text-center text-[9px] text-slate-500 font-mono">
+                  ⌨ Shortcut: <strong className="text-slate-400">Alt + C</strong> from any page
+                </p>
               </div>
+            </div>
 
-              {/* Target 2: Top-Right */}
-              <div
-                onClick={() => setCalibrationStep(2)}
-                className="absolute top-5 right-6 cursor-pointer"
-              >
-                <div
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[9px] font-mono font-bold ${calibrationStep > 2
-                      ? 'border-teal-400 bg-teal-500/20 text-teal-300'
-                      : calibrationStep === 2
-                        ? 'border-cyan-400 bg-cyan-500/30 text-white animate-pulse'
-                        : 'border-slate-600 bg-slate-900 text-slate-400'
-                    }`}
-                >
-                  {calibrationStep > 2 ? '✓' : '2'}
-                </div>
-              </div>
-
-              {/* Target 3: Center (Active Target) */}
-              <div
-                onClick={() => setCalibrationStep(3)}
-                className="absolute z-20 flex flex-col items-center cursor-pointer"
-              >
-                <div className="relative flex items-center justify-center">
-                  <div className="w-9 h-9 rounded-full border-2 border-cyan-400 animate-ping absolute opacity-50"></div>
-                  <div className="w-8 h-8 rounded-full border-2 border-cyan-300 bg-cyan-500/30 flex items-center justify-center shadow-lg shadow-cyan-500/50">
-                    <div className="w-2.5 h-2.5 rounded-full bg-white shadow"></div>
+            {/* Quick-tips */}
+            <div className="p-2.5 rounded-xl bg-white border border-slate-200/90 shadow-xs space-y-1.5">
+              <span className="text-[10px] font-mono font-bold text-teal-700 uppercase tracking-wider">How it works</span>
+              <div className="space-y-1 mt-1">
+                {[
+                  ['1', 'Camera opens in a circular HUD on screen'],
+                  ['2', 'Align your face inside the circular reticle'],
+                  ['3', 'Press Space or click Calibrate'],
+                  ['4', 'Hold still for 3 seconds — neutral posture locks in'],
+                ].map(([step, tip]) => (
+                  <div key={step} className="flex items-start gap-2 text-[10px] text-slate-600">
+                    <span className="w-4 h-4 rounded-full bg-teal-100 text-teal-800 font-bold text-[9px] flex items-center justify-center shrink-0">{step}</span>
+                    <span>{tip}</span>
                   </div>
-                </div>
-                <span className="mt-1 text-[8px] font-mono uppercase tracking-wider text-cyan-200 bg-slate-950/90 px-1.5 py-0.2 rounded border border-cyan-400/50 font-semibold">
-                  Fixate Here
-                </span>
-              </div>
-
-              {/* Target 4: Bottom-Left */}
-              <div
-                onClick={() => setCalibrationStep(4)}
-                className="absolute bottom-5 left-6 cursor-pointer"
-              >
-                <div
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[9px] font-mono font-bold ${calibrationStep > 4
-                      ? 'border-teal-400 bg-teal-500/20 text-teal-300'
-                      : calibrationStep === 4
-                        ? 'border-cyan-400 bg-cyan-500/30 text-white animate-pulse'
-                        : 'border-slate-600 bg-slate-900 text-slate-400'
-                    }`}
-                >
-                  {calibrationStep > 4 ? '✓' : '4'}
-                </div>
-              </div>
-
-              {/* Target 5: Bottom-Right */}
-              <div
-                onClick={() => setCalibrationStep(5)}
-                className="absolute bottom-5 right-6 cursor-pointer"
-              >
-                <div
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[9px] font-mono font-bold ${calibrationStep === 5
-                      ? 'border-cyan-400 bg-cyan-500/30 text-white animate-pulse'
-                      : 'border-slate-600 bg-slate-900 text-slate-400'
-                    }`}
-                >
-                  5
-                </div>
-              </div>
-
-              {/* Stylized Face Reticle Vector */}
-              <svg
-                className="w-32 h-auto glow-reticle-light text-cyan-400/60 pointer-events-none"
-                fill="none"
-                viewBox="0 0 200 240"
-              >
-                <ellipse cx="100" cy="120" opacity="0.5" rx="60" ry="85" stroke="currentColor" strokeDasharray="3 3" strokeWidth="1.5"></ellipse>
-                <line opacity="0.3" stroke="currentColor" strokeDasharray="4 4" strokeWidth="1" x1="40" x2="160" y1="105" y2="105"></line>
-                <line opacity="0.3" stroke="currentColor" strokeDasharray="4 4" strokeWidth="1" x1="100" x2="100" y1="35" y2="205"></line>
-                <circle cx="75" cy="105" fill="rgba(6, 182, 212, 0.2)" r="7" stroke="#06b6d4" strokeWidth="1.5"></circle>
-                <circle cx="75" cy="105" fill="#38bdf8" r="2"></circle>
-                <circle cx="125" cy="105" fill="rgba(6, 182, 212, 0.2)" r="7" stroke="#06b6d4" strokeWidth="1.5"></circle>
-                <circle cx="125" cy="105" fill="#38bdf8" r="2"></circle>
-                <polyline fill="none" points="100,105 100,132 95,142 105,142" stroke="#14b8a6" strokeWidth="1.5"></polyline>
-                <ellipse cx="100" cy="165" fill="rgba(16, 185, 129, 0.15)" rx="14" ry="5" stroke="#10b981" strokeWidth="1.5"></ellipse>
-              </svg>
-
-              {/* Real-time Head Pitch / Yaw / Roll */}
-              <div className="absolute bottom-2 inset-x-0 flex justify-center pointer-events-none">
-                <div className="bg-slate-950/90 border border-slate-800 rounded-full px-2.5 py-0.5 flex items-center gap-3 text-[9px] font-mono">
-                  <span className="text-slate-400">PITCH: <span className="text-teal-300 font-semibold">+1.2°</span></span>
-                  <span className="text-slate-400">YAW: <span className="text-teal-300 font-semibold">-0.4°</span></span>
-                  <span className="text-slate-400">ROLL: <span className="text-emerald-300 font-semibold">0.0°</span></span>
-                </div>
-              </div>
-            </div>
-
-            {/* Calibration Progress Bar */}
-            <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 shadow-xs space-y-1.5">
-              <div className="flex justify-between items-center text-[11px]">
-                <span className="font-semibold text-slate-700 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-teal-600"></span>
-                  Gaze Calibration Progress
-                </span>
-                <span className="font-mono font-bold text-teal-700">
-                  {calibrationStep * 20}% Complete
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden p-0.5 border border-slate-200">
-                <div
-                  className="bg-gradient-to-r from-teal-600 via-teal-500 to-cyan-500 h-full rounded-full transition-all duration-300"
-                  style={{ width: `${calibrationStep * 20}%` }}
-                ></div>
+                ))}
               </div>
             </div>
 
             {/* Calibration Controls */}
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setCalibrationStep(1)}
+                onClick={() => send(MSG.CALIBRATE, { quick: true })}
                 className="flex-1 py-1.5 px-3 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-1.5"
                 type="button"
               >
                 <svg className="w-3.5 h-3.5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                  <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
                 </svg>
-                Restart
+                Quick Recenter
               </button>
               <button
-                onClick={() => setCalibrationStep((prev) => Math.min(5, prev + 1))}
+                onClick={() => {
+                  send(MSG.START_TRACKING);
+                  send(MSG.CALIBRATE);
+                  setTimeout(() => {
+                    try { window.close(); } catch (_) {}
+                  }, 150);
+                }}
                 className="flex-1 py-1.5 px-3 rounded-lg bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-bold text-xs transition-all shadow-md shadow-teal-600/25 flex items-center justify-center gap-1"
                 type="button"
               >
-                <span>Confirm Point</span>
+                <span>Full Studio</span>
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path d="M14 5l7 7m0 0l-7 7m7-7H3" strokeLinecap="round" strokeLinejoin="round"></path>
+                  <path d="M14 5l7 7m0 0l-7 7m7-7H3" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
             </div>

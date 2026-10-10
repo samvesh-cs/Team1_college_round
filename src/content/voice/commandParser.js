@@ -13,6 +13,7 @@ const COMMANDS = [
   { phrases: ["stop dictation", "stop typing"],   type: "STOP_DICTATION" },
   { phrases: ["show targets"],   type: "SHOW_TARGETS" },
   { phrases: ["hide targets"],   type: "HIDE_TARGETS" },
+  { phrases: ["calibrate", "center cursor", "reset cursor", "recalibrate"], type: "CALIBRATE" },
 ];
 
 export function parseCommand(transcript) {

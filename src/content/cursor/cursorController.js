@@ -7,10 +7,11 @@ import { start as startTracking, stop as stopTracking } from "./faceTracking.js"
 import {
   calibrate as mathCalibrate,
   getDelta,
-  applyDeadZone,
+  applyContinuousDeadZone,
   applySmoothing,
   mapToViewport,
   clamp,
+  getNeutral,
 } from "./cursorMath.js";
 import { DEFAULTS } from "../../shared/constants.js";
 
@@ -20,23 +21,46 @@ export class CursorController {
    * @param {number} [options.sensitivity]
    * @param {number} [options.smoothing]
    * @param {number} [options.deadZone]
+   * @param {boolean} [options.intentLockEnabled]
    */
   constructor(options = {}) {
     this.sensitivity = options.sensitivity ?? DEFAULTS.sensitivity;
     this.smoothing = options.smoothing ?? DEFAULTS.smoothing;
     this.deadZone = options.deadZone ?? DEFAULTS.deadZone;
+    this.intentLockEnabled = options.intentLockEnabled ?? DEFAULTS.intentLockEnabled;
 
     this.cursorEl = null;
     this.isTracking = false;
     this.isPaused = false;
+    this.isCalibrated = false;
 
     // Last known raw landmark coordinates
     this.lastRawX = 0.5;
     this.lastRawY = 0.5;
+    this.lastDx = 0;
+    this.lastDy = 0;
+
+    // Multi-sample calibration buffer
+    this.isCalibrating = false;
+    this.calibrationSamples = [];
+    this.targetCalibrationSamples = 15;
+    this.onCalibrationComplete = null;
 
     // Current smoothed cursor pixel coordinates
     this.currentX = window.innerWidth / 2;
     this.currentY = window.innerHeight / 2;
+  }
+
+  get x() {
+    return this.currentX;
+  }
+
+  get y() {
+    return this.currentY;
+  }
+
+  getNeutralPoint() {
+    return getNeutral();
   }
 
   /**
@@ -75,7 +99,10 @@ export class CursorController {
     this.isTracking = true;
     this.isPaused = false;
 
-    let isFirstFrame = true;
+    // If not yet calibrated, start collecting an initial 15-frame average
+    if (!this.isCalibrated) {
+      this.calibrateWithSampling(15);
+    }
 
     try {
       await startTracking(({ x, y }) => {
@@ -84,10 +111,36 @@ export class CursorController {
         this.lastRawX = x;
         this.lastRawY = y;
 
-        // Auto-calibrate on the very first detected frame
-        if (isFirstFrame) {
-          mathCalibrate(x, y);
-          isFirstFrame = false;
+        // Multi-sample calibration mode
+        if (this.isCalibrating) {
+          this.calibrationSamples.push({ x, y });
+          if (this.calibrationSamples.length >= this.targetCalibrationSamples) {
+            const avgX =
+              this.calibrationSamples.reduce((sum, s) => sum + s.x, 0) /
+              this.calibrationSamples.length;
+            const avgY =
+              this.calibrationSamples.reduce((sum, s) => sum + s.y, 0) /
+              this.calibrationSamples.length;
+
+            mathCalibrate(avgX, avgY);
+            this.isCalibrating = false;
+            this.isCalibrated = true;
+            this.calibrationSamples = [];
+
+            // Reset cursor cleanly to screen center
+            this.currentX = window.innerWidth / 2;
+            this.currentY = window.innerHeight / 2;
+            if (this.cursorEl) {
+              this.cursorEl.style.left = `${this.currentX}px`;
+              this.cursorEl.style.top = `${this.currentY}px`;
+            }
+
+            const cb = this.onCalibrationComplete;
+            this.onCalibrationComplete = null;
+            if (typeof cb === "function") {
+              cb({ x: avgX, y: avgY });
+            }
+          }
           return;
         }
 
@@ -116,10 +169,12 @@ export class CursorController {
     // Mirror X axis so moving head right moves cursor right
     const mirroredDx = -dx;
     const deltaY = dy;
+    this.lastDx = mirroredDx;
+    this.lastDy = deltaY;
 
-    // Apply dead zone to suppress natural micro-tremor
-    const dzX = applyDeadZone(mirroredDx, this.deadZone);
-    const dzY = applyDeadZone(deltaY, this.deadZone);
+    // Apply continuous dead zone (prevents sudden 500px cursor jumps when crossing threshold)
+    const dzX = applyContinuousDeadZone(mirroredDx, this.deadZone);
+    const dzY = applyContinuousDeadZone(deltaY, this.deadZone);
 
     const vpWidth = window.innerWidth;
     const vpHeight = window.innerHeight;
@@ -130,15 +185,25 @@ export class CursorController {
     const targetX = mapToViewport(dzX, this.sensitivity, centerX, vpWidth);
     const targetY = mapToViewport(dzY, this.sensitivity, centerY, vpHeight);
 
+    // Dynamic IntentLock smoothing: when moving very slowly / lingering over target,
+    // boost smoothing to firmly lock against micro-tremor.
+    let effectiveSmoothing = this.smoothing;
+    if (this.intentLockEnabled) {
+      const motionMagnitude = Math.hypot(dzX, dzY);
+      if (motionMagnitude < this.deadZone * 2) {
+        effectiveSmoothing = Math.min(0.92, this.smoothing + 0.12);
+      }
+    }
+
     // Smooth movement using Exponential Moving Average (EMA)
-    this.currentX = applySmoothing(this.currentX, targetX, this.smoothing);
-    this.currentY = applySmoothing(this.currentY, targetY, this.smoothing);
+    this.currentX = applySmoothing(this.currentX, targetX, effectiveSmoothing);
+    this.currentY = applySmoothing(this.currentY, targetY, effectiveSmoothing);
 
     // Keep cursor within visible viewport bounds
     const clampedX = clamp(this.currentX, 0, vpWidth);
     const clampedY = clamp(this.currentY, 0, vpHeight);
 
-    // Direct DOM style update for 60fps performance (bypassing any virtual DOM)
+    // Direct DOM style update for 60fps performance
     if (this.cursorEl) {
       this.cursorEl.style.left = `${clampedX}px`;
       this.cursorEl.style.top = `${clampedY}px`;
@@ -146,10 +211,23 @@ export class CursorController {
   }
 
   /**
-   * Calibrates the current head position as the new neutral/center point.
+   * Calibrates using a multi-frame rolling average for rock-steady neutral center.
+   * @param {number} [sampleCount=20]
+   * @param {Function} [onComplete]
+   */
+  calibrateWithSampling(sampleCount = 20, onComplete = null) {
+    this.isCalibrating = true;
+    this.calibrationSamples = [];
+    this.targetCalibrationSamples = sampleCount;
+    this.onCalibrationComplete = onComplete;
+  }
+
+  /**
+   * Immediate calibration of current head position as new neutral/center point.
    */
   calibrate() {
     mathCalibrate(this.lastRawX, this.lastRawY);
+    this.isCalibrated = true;
     this.currentX = window.innerWidth / 2;
     this.currentY = window.innerHeight / 2;
 
@@ -188,11 +266,27 @@ export class CursorController {
   }
 
   /**
-   * Dynamically adjust smoothing factor (0 = instant/raw, 0.9 = very smooth/gradual).
+   * Dynamically adjust smoothing factor (0 = instant/raw, 0.95 = very smooth/gradual).
    * @param {number} val
    */
   setSmoothing(val) {
     this.smoothing = Number(val);
+  }
+
+  /**
+   * Dynamically adjust deadzone threshold.
+   * @param {number} val
+   */
+  setDeadZone(val) {
+    this.deadZone = Number(val);
+  }
+
+  /**
+   * Enable or disable IntentLock anti-jitter stabilization.
+   * @param {boolean} val
+   */
+  setIntentLock(val) {
+    this.intentLockEnabled = Boolean(val);
   }
 
   /**
@@ -201,6 +295,8 @@ export class CursorController {
   stop() {
     this.isTracking = false;
     this.isPaused = false;
+    this.isCalibrating = false;
+    this.calibrationSamples = [];
 
     stopTracking();
 
