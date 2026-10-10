@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MSG } from '../shared/messages.js';
+import { loadSettings, saveSettings, getDefaults, validateSettingsPatch } from '../shared/settings.js';
 
 function send(type, payload = {}) {
   try {
@@ -25,12 +26,38 @@ export default function App() {
 
   // Calibration state
   const [calibrationStep, setCalibrationStep] = useState(3);
-  const [dwellTime, setDwellTime] = useState(800);
-  const [smoothingFactor, setSmoothingFactor] = useState(0.85);
+  const [dwellTime, setDwellTime] = useState(1200);
+  const [smoothingFactor, setSmoothingFactor] = useState(0.3);
+  const [sensitivity, setSensitivity] = useState(15);
+  const [deadZone, setDeadZone] = useState(0.02);
+  const [statusError, setStatusError] = useState(null);
+  const [saveError, setSaveError] = useState(null);
 
-  // Simulated telemetry
-  const [fps, setFps] = useState(60.0);
-  const [latency, setLatency] = useState(12);
+  // === WS-4 Phase D: newest-wins settings core (avoids stale closures) ===
+  const settingsRef = useRef(getDefaults());
+  const revRef = useRef(0);
+  const dirtyRef = useRef(false);
+  const saveChainRef = useRef(Promise.resolve());
+
+  function requestStatus() {
+    return new Promise((resolve) => {
+      try {
+        if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) {
+          resolve({ ok: false, error: 'NO_EXTENSION_API' });
+          return;
+        }
+        chrome.runtime.sendMessage({ type: MSG.GET_STATUS }, (res) => {
+          if (chrome.runtime.lastError) {
+            resolve({ ok: false, error: chrome.runtime.lastError.message });
+            return;
+          }
+          resolve(res);
+        });
+      } catch (e) {
+        resolve({ ok: false, error: e && e.message ? e.message : String(e) });
+      }
+    });
+  }
 
   const toggleEngine = () => {
     const nextState = !isRunning;
@@ -45,13 +72,84 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!isRunning) return;
-    const interval = setInterval(() => {
-      setFps(+(59.5 + Math.random() * 1.5).toFixed(1));
-      setLatency(Math.floor(11 + Math.random() * 3));
-    }, 1500);
-    return () => clearInterval(interval);
-  }, [isRunning]);
+    let mounted = true;
+    loadSettings()
+      .then((s) => {
+        // Fix 1: never let the initial load overwrite settings the user already changed.
+        if (!mounted || dirtyRef.current) return;
+        const { clean } = validateSettingsPatch(s);
+        const next = { ...getDefaults(), ...clean };
+        settingsRef.current = next;
+        setTrackingEnabled(next.trackingEnabled);
+        setVoiceEnabled(next.voiceEnabled);
+        setTypingEnabled(next.typingEnabled);
+        setIntentLockEnabled(next.intentLockEnabled);
+        setDwellTime(next.dwellDuration);
+        setSmoothingFactor(next.smoothing);
+        setSensitivity(next.sensitivity);
+        setDeadZone(next.deadZone);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const syncStatesFromSettings = (next) => {
+    setTrackingEnabled(next.trackingEnabled);
+    setVoiceEnabled(next.voiceEnabled);
+    setTypingEnabled(next.typingEnabled);
+    setIntentLockEnabled(next.intentLockEnabled);
+    setDwellTime(next.dwellDuration);
+    setSmoothingFactor(next.smoothing);
+    setSensitivity(next.sensitivity);
+    setDeadZone(next.deadZone);
+  };
+
+  const applyLocalUpdate = (patch) => {
+    // Fix 4: never save or broadcast an invalid patch.
+    const { clean, errors } = validateSettingsPatch(patch);
+    if (errors.length > 0) {
+      setSaveError(errors[0]);
+      return;
+    }
+    dirtyRef.current = true;
+    // Timestamp-based revision: strictly increasing within and across popup sessions.
+    revRef.current = Math.max(Date.now(), revRef.current + 1);
+    const rev = revRef.current;
+    const next = { ...settingsRef.current, ...clean };
+    settingsRef.current = next;
+    syncStatesFromSettings(next);
+    // Fix 2: serialize storage writes so they finish in issue order (newest last).
+    saveChainRef.current = saveChainRef.current.then(async () => {
+      try {
+        await saveSettings(next);
+        if (revRef.current === rev) setSaveError(null);
+      } catch (e) {
+        if (revRef.current === rev) {
+          setSaveError(e && e.message ? e.message : 'SAVE_FAILED');
+        }
+      }
+    });
+    // Fix 2: content keeps an in-memory copy and does not re-save (popup is primary writer).
+    send(MSG.UPDATE_SETTINGS, { settings: next, rev });
+  };
+
+  // === WS-4 Phase C: query real content status; show errors instead of fake telemetry ===
+  useEffect(() => {
+    let mounted = true;
+    requestStatus().then((res) => {
+      if (!mounted) return;
+      if (!res || res.ok === false) {
+        setStatusError(res && res.error ? res.error : 'STATUS_UNAVAILABLE');
+      } else {
+        setStatusError(null);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <div className="w-[390px] h-[580px] bg-[#f8fafc] text-slate-800 flex flex-col font-sans overflow-hidden select-none relative">
@@ -185,6 +283,19 @@ export default function App() {
               </div>
             </button>
 
+            {/* WS-4 Phase C: real status errors (no fake telemetry) */}
+            {statusError && (
+              <div className="p-2 rounded-xl bg-red-50 border border-red-200 text-[11px] text-red-700 font-medium" role="alert">
+                Status unavailable: {statusError}. Open a regular web page and reload the extension.
+              </div>
+            )}
+            {/* WS-4 Phase D: storage save errors (never imply success on failure) */}
+            {saveError && (
+              <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800 font-medium" role="alert">
+                Settings not saved: {saveError}. Changes apply for this session and will be retried on the next change.
+              </div>
+            )}
+
             {/* Feature Toggles List */}
             <div className="space-y-1.5" data-purpose="toggle-controls-list">
               {/* Toggle 1: Head Tracking */}
@@ -204,8 +315,8 @@ export default function App() {
                 {/* Precision Mechanical Switch */}
                 <button
                   onClick={() => {
-                    const next = !trackingEnabled;
-                    setTrackingEnabled(next);
+                    const next = !settingsRef.current.trackingEnabled;
+                    applyLocalUpdate({ trackingEnabled: next });
                     if (isRunning) send(next ? MSG.START_TRACKING : MSG.STOP_TRACKING);
                   }}
                   aria-checked={trackingEnabled}
@@ -236,8 +347,8 @@ export default function App() {
                 </div>
                 <button
                   onClick={() => {
-                    const next = !voiceEnabled;
-                    setVoiceEnabled(next);
+                    const next = !settingsRef.current.voiceEnabled;
+                    applyLocalUpdate({ voiceEnabled: next });
                     if (isRunning) send(next ? MSG.START_VOICE : MSG.STOP_VOICE);
                   }}
                   aria-checked={voiceEnabled}
@@ -267,7 +378,10 @@ export default function App() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setTypingEnabled(!typingEnabled)}
+                  onClick={() => {
+                    const next = !settingsRef.current.typingEnabled;
+                    applyLocalUpdate({ typingEnabled: next });
+                  }}
                   aria-checked={typingEnabled}
                   className={`relative inline-flex h-[22px] w-10 p-0.5 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${typingEnabled ? 'bg-[#0f766e]' : 'bg-slate-300'
                     }`}
@@ -300,7 +414,10 @@ export default function App() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setIntentLockEnabled(!intentLockEnabled)}
+                  onClick={() => {
+                    const next = !settingsRef.current.intentLockEnabled;
+                    applyLocalUpdate({ intentLockEnabled: next });
+                  }}
                   aria-checked={intentLockEnabled}
                   className={`relative inline-flex h-[22px] w-10 p-0.5 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${intentLockEnabled ? 'bg-[#0f766e]' : 'bg-slate-300'
                     }`}
@@ -334,16 +451,96 @@ export default function App() {
               <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-xs">
                 <div className="text-[9px] text-slate-500 font-mono uppercase font-medium">ENGINE FPS</div>
                 <div className="text-xs font-bold text-slate-900 flex items-center justify-between mt-0.5">
-                  <span>{fps}</span>
-                  <span className="text-[9px] font-semibold text-emerald-600">Stable</span>
+                  <span>—</span>
+                  <span className="text-[9px] font-semibold text-slate-400">Phase C</span>
                 </div>
               </div>
               <div className="p-2 rounded-xl bg-white border border-slate-200 shadow-xs">
                 <div className="text-[9px] text-slate-500 font-mono uppercase font-medium">LATENCY</div>
                 <div className="text-xs font-bold text-slate-900 flex items-center justify-between mt-0.5">
-                  <span>{latency}ms</span>
-                  <span className="text-[9px] font-semibold text-teal-700">&lt; 16ms</span>
+                  <span>—</span>
+                  <span className="text-[9px] font-semibold text-slate-400">Phase C</span>
                 </div>
+              </div>
+            </div>
+
+            {/* Tracking Tuning Sliders (WS-4 Phase B) */}
+            <div className="p-2.5 rounded-xl bg-white border border-slate-200/90 shadow-xs space-y-2.5" data-purpose="tracking-tuning">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-700">Tracking Tuning</span>
+                <span className="text-[9px] font-mono font-semibold text-teal-700 uppercase">Persisted</span>
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-[10px] font-semibold text-slate-600">
+                  <label htmlFor="handsfree-sensitivity">Sensitivity</label>
+                  <span className="font-mono text-slate-900">{sensitivity}</span>
+                </div>
+                <input
+                  id="handsfree-sensitivity"
+                  type="range"
+                  min="5"
+                  max="30"
+                  step="1"
+                  value={sensitivity}
+                  onChange={(e) => {
+                    applyLocalUpdate({ sensitivity: Number(e.target.value) });
+                  }}
+                  className="w-full accent-teal-600"
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-[10px] font-semibold text-slate-600">
+                  <label htmlFor="handsfree-smoothing">Smoothing</label>
+                  <span className="font-mono text-slate-900">{smoothingFactor}</span>
+                </div>
+                <input
+                  id="handsfree-smoothing"
+                  type="range"
+                  min="0.1"
+                  max="0.8"
+                  step="0.05"
+                  value={smoothingFactor}
+                  onChange={(e) => {
+                    applyLocalUpdate({ smoothing: Number(e.target.value) });
+                  }}
+                  className="w-full accent-teal-600"
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-[10px] font-semibold text-slate-600">
+                  <label htmlFor="handsfree-deadzone">Dead zone</label>
+                  <span className="font-mono text-slate-900">{deadZone}</span>
+                </div>
+                <input
+                  id="handsfree-deadzone"
+                  type="range"
+                  min="0.01"
+                  max="0.1"
+                  step="0.005"
+                  value={deadZone}
+                  onChange={(e) => {
+                    applyLocalUpdate({ deadZone: Number(e.target.value) });
+                  }}
+                  className="w-full accent-teal-600"
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-[10px] font-semibold text-slate-600">
+                  <label htmlFor="handsfree-dwell">Dwell duration (ms)</label>
+                  <span className="font-mono text-slate-900">{dwellTime}ms</span>
+                </div>
+                <input
+                  id="handsfree-dwell"
+                  type="range"
+                  min="500"
+                  max="3000"
+                  step="100"
+                  value={dwellTime}
+                  onChange={(e) => {
+                    applyLocalUpdate({ dwellDuration: Number(e.target.value) });
+                  }}
+                  className="w-full accent-teal-600"
+                />
               </div>
             </div>
 

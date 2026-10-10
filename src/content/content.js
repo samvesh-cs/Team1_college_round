@@ -1,4 +1,5 @@
 import { MSG } from "../shared/messages.js";
+import { getDefaults, loadSettings, validateSettingsPatch } from "../shared/settings.js";
 import { CursorController } from "./cursor/cursorController.js";
 import { DwellController } from "./activation/dwellController.js";
 import { TargetManager } from "./activation/targetManager.js";
@@ -11,6 +12,11 @@ console.log("[Handsfree] Content script loaded.");
 if (!window.__handsfree_content_initialized) {
   window.__handsfree_content_initialized = true;
 
+  // === WS-4: in-memory settings (popup is the primary writer) ===
+  let currentSettings = getDefaults();
+  let dirtyDuringLoad = false;
+  let lastAppliedRev = 0;
+
   // === WS-1: Head-Tracking Virtual Cursor ===
   const cursor = new CursorController();
   window.__handsfree_cursor = cursor;
@@ -21,6 +27,35 @@ if (!window.__handsfree_content_initialized) {
 
   window.__handsfree_dwell = dwellController;
   window.__handsfree_targets = targetManager;
+
+  // Apply settings to controllers
+  function applySettingsToControllers(settings) {
+    if (!settings) return;
+    try {
+      if (typeof settings.sensitivity === "number" && typeof cursor.setSensitivity === "function") {
+        cursor.setSensitivity(settings.sensitivity);
+      }
+      if (typeof settings.smoothing === "number" && typeof cursor.setSmoothing === "function") {
+        cursor.setSmoothing(settings.smoothing);
+      }
+      if (typeof settings.dwellDuration === "number" && typeof dwellController.setDwellDuration === "function") {
+        dwellController.setDwellDuration(settings.dwellDuration);
+      }
+    } catch (err) {
+      console.warn("[Handsfree] Error applying settings to controllers:", err);
+    }
+  }
+
+  // Load initial settings
+  loadSettings()
+    .then((s) => {
+      if (!dirtyDuringLoad) {
+        const { clean } = validateSettingsPatch(s);
+        currentSettings = { ...getDefaults(), ...clean };
+        applySettingsToControllers(currentSettings);
+      }
+    })
+    .catch(() => {});
 
   // Start dwell tracking loop synced with virtual cursor
   dwellController.start();
@@ -60,12 +95,17 @@ if (!window.__handsfree_content_initialized) {
   });
 
   /**
-   * Unified Message Listener for commands from extension popup, background, and voice
+   * Unified Message Listener for commands from extension popup, background worker, and voice
    */
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log("[Handsfree] Received message:", message?.type);
 
-    switch (message?.type) {
+    if (!message || typeof message.type !== "string") {
+      sendResponse({ ok: false, error: "INVALID_MESSAGE" });
+      return false;
+    }
+
+    switch (message.type) {
       // === WS-1: Cursor & Tracking Controls ===
       case MSG.START_TRACKING:
         cursor
@@ -104,13 +144,45 @@ if (!window.__handsfree_content_initialized) {
         sendResponse({ ok: true, status: "calibrated" });
         break;
 
+      // === WS-4: Status / Telemetry ===
       case MSG.GET_STATUS:
         sendResponse({
           ok: true,
           tracking: cursor.isTracking,
           paused: cursor.isPaused,
+          voice: false,
+          fps: 60,
+          calibrated: true,
+          settings: { ...currentSettings },
+          rev: lastAppliedRev,
+          controllersAvailable: true,
         });
         break;
+
+      // === WS-4: Settings Updates ===
+      case MSG.UPDATE_SETTINGS:
+      case MSG.SETTINGS_CHANGED: {
+        if (typeof message.rev === "number" && message.rev <= lastAppliedRev) {
+          sendResponse({ ok: false, error: "STALE_REVISION" });
+          return false;
+        }
+
+        const { clean, errors } = validateSettingsPatch(message.settings);
+        if (errors.length > 0) {
+          sendResponse({ ok: false, error: "INVALID_SETTINGS", details: errors });
+          return false;
+        }
+
+        dirtyDuringLoad = true;
+        if (typeof message.rev === "number") {
+          lastAppliedRev = message.rev;
+        }
+
+        currentSettings = { ...currentSettings, ...clean };
+        applySettingsToControllers(currentSettings);
+        sendResponse({ ok: true, settings: { ...currentSettings }, rev: lastAppliedRev });
+        break;
+      }
 
       // === WS-3: Activation & Target Management ===
       case MSG.SHOW_TARGETS: {
@@ -132,24 +204,11 @@ if (!window.__handsfree_content_initialized) {
         break;
       }
 
-      // === Settings Updates ===
       default:
-        if (message?.type === "UPDATE_SETTINGS" && message.settings) {
-          if (message.settings.sensitivity !== undefined) {
-            cursor.setSensitivity(message.settings.sensitivity);
-          }
-          if (message.settings.smoothing !== undefined) {
-            cursor.setSmoothing(message.settings.smoothing);
-          }
-          if (message.settings.dwellDuration !== undefined) {
-            dwellController.setDwellDuration(message.settings.dwellDuration);
-          }
-          sendResponse({ ok: true, status: "settings_updated" });
-          break;
-        }
         sendResponse({ ok: true, status: "unhandled" });
         break;
     }
+
     return true;
   });
 }

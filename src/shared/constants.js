@@ -3,4 +3,8 @@ export const DEFAULTS = {
   smoothing: 0.65,
   deadZone: 0.02,
   dwellDuration: 1200, // ms
+  trackingEnabled: true,
+  voiceEnabled: true,
+  typingEnabled: false,
+  intentLockEnabled: true,
 };
