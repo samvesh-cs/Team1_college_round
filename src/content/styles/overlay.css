@@ -1,0 +1,22 @@
+#handsfree-cursor {
+  position: fixed;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.9), rgba(59, 130, 246, 0.3));
+  border: 2px solid white;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+  pointer-events: none;
+  z-index: 2147483647;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.2s;
+  display: none;
+}
+
+#handsfree-cursor.active {
+  display: block;
+}
+
+#handsfree-cursor.paused {
+  opacity: 0.4;
+}

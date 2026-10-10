@@ -1,0 +1,1 @@
+import{t as e}from"./messages-DtooMn2l.js";chrome.runtime.onMessage.addListener((t,n,r)=>(t.type,e.GET_STATUS,chrome.tabs.query({active:!0,currentWindow:!0},e=>{e[0]?.id&&chrome.tabs.sendMessage(e[0].id,t,r)}),!0));
