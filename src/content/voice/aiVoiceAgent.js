@@ -490,9 +490,11 @@ export class AiVoiceAgent {
       this.flashOrbToast(replySummary);
     }
 
-    // 3. Real-time Audio Spoken Reply (TTS)
-    const toSpeak = spokenReply || (commandTag ? commandTag : text);
-    this.speak(toSpeak);
+    // 3. Audio Spoken Reply (TTS)
+    // Only speak aloud if spokenReply is explicitly provided. Prevents repetitive voice echoing!
+    if (spokenReply && typeof spokenReply === "string" && spokenReply.trim().length > 0) {
+      this.speak(spokenReply.trim());
+    }
   }
 
   setEqualizerActive(isActive) {

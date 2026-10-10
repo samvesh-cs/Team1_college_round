@@ -430,8 +430,19 @@ export class VoiceController {
     const command = parseCommand(trimmed);
     if (command.type === "EMPTY") return false;
 
-    // Conversational AI Assistant Query
+    // Conversational AI Assistant Query or Direct Input Typing
     if (command.type === "AI_QUERY") {
+      const activeInput = this._getActiveInput();
+      if (activeInput) {
+        // If an input is focused, type the spoken words directly into it!
+        if (!isInterim) {
+          this.aiAgent.setInterimText("");
+          this._typeText(trimmed);
+          this._abortAndFlush();
+        }
+        return true;
+      }
+
       if (!isInterim) {
         this.aiAgent.setInterimText("");
         this.aiAgent.addUserMessage(trimmed);
@@ -444,11 +455,10 @@ export class VoiceController {
 
     // 3. Instant Single-Intent Commands
     // Execute IMMEDIATELY on the very first interim token (< 100ms) without waiting for silence!
-    // Note: bare "CLICK" waits for phrase completion so it does not preempt "click 4" or "click target".
     const instantCommands = [
       "SCROLL_DOWN", "SCROLL_UP", "GO_TOP", "GO_BOTTOM",
       "GO_BACK", "GO_FORWARD", "RELOAD",
-      "DOUBLE_CLICK", "CLICK_TARGET",
+      "CLICK", "DOUBLE_CLICK", "CLICK_TARGET",
       "PRESS_ENTER", "PRESS_TAB", "PRESS_ESCAPE", "CLEAR_INPUT",
       "SHOW_TARGETS", "HIDE_TARGETS",
       "WAKE_UP", "EXPAND_MORE", "COLLAPSE_CHAT", "SLEEP",
@@ -458,7 +468,7 @@ export class VoiceController {
     const isInstant = instantCommands.includes(command.type) || (command.type === "SEARCH_PAGE" && !command.payload);
 
     if (isInterim && !isInstant) {
-      // Multi-word commands (such as "search [query]" or "type [text]" or bare "click") wait for the full sentence
+      // Multi-word commands (such as "search [query]" or "type [text]") wait for the full sentence
       return false;
     }
 
@@ -538,27 +548,58 @@ export class VoiceController {
 
   _scrollPage(dy) {
     const target = this._findScrollableContainer();
-    if (!target) {
-      window.scrollBy({ top: dy, behavior: "smooth" });
-      return;
-    }
     try {
-      target.scrollBy({ top: dy, behavior: "smooth" });
-    } catch (e) {
-      console.warn("[Handsfree] Scroll command failed:", e);
+      window.scrollBy({ top: dy, behavior: "smooth" });
+    } catch (_) {}
+
+    if (target && target !== document.documentElement && target !== document.body) {
+      try {
+        target.scrollBy({ top: dy, behavior: "smooth" });
+      } catch (e) {
+        console.warn("[Handsfree] Scroll container scrollBy failed:", e);
+      }
     }
   }
 
   _scrollPageTo(position) {
+    const isTop = position === "top";
     const target = this._findScrollableContainer();
-    if (!target) {
-      window.scrollTo({ top: position === "top" ? 0 : document.documentElement.scrollHeight, behavior: "smooth" });
-      return;
-    }
+
     try {
-      target.scrollTo({ top: position === "top" ? 0 : target.scrollHeight, behavior: "smooth" });
-    } catch (e) {
-      console.warn("[Handsfree] Scroll command failed:", e);
+      window.scrollTo({
+        top: isTop ? 0 : (document.documentElement.scrollHeight || document.body.scrollHeight || 10000),
+        behavior: "smooth"
+      });
+    } catch (_) {}
+
+    try {
+      const docEl = document.scrollingElement || document.documentElement;
+      if (docEl) {
+        docEl.scrollTo({
+          top: isTop ? 0 : docEl.scrollHeight,
+          behavior: "smooth"
+        });
+      }
+    } catch (_) {}
+
+    try {
+      if (document.body) {
+        document.body.scrollTo({
+          top: isTop ? 0 : document.body.scrollHeight,
+          behavior: "smooth"
+        });
+      }
+    } catch (_) {}
+
+    if (target && target !== document.documentElement && target !== document.body) {
+      try {
+        target.scrollTo({
+          top: isTop ? 0 : target.scrollHeight,
+          behavior: "smooth"
+        });
+      } catch (e) {
+        console.warn("[Handsfree] Scroll container scrollTo failed:", e);
+      }
     }
   }
 
@@ -570,42 +611,42 @@ export class VoiceController {
       case "SCROLL_DOWN":
         this._scrollPage(scrollStep);
         this.overlay.flashCommand("scroll down");
-        this.aiAgent.addAgentMessage(`Scrolled down ${scrollStep}px`, "scroll down", "Moving down");
+        this.aiAgent.addAgentMessage(`Scrolled down ${scrollStep}px`, "scroll down", null);
         break;
 
       case "SCROLL_UP":
         this._scrollPage(-scrollStep);
         this.overlay.flashCommand("scroll up");
-        this.aiAgent.addAgentMessage(`Scrolled up ${scrollStep}px`, "scroll up", "Moving up");
+        this.aiAgent.addAgentMessage(`Scrolled up ${scrollStep}px`, "scroll up", null);
         break;
 
       case "GO_TOP":
         this._scrollPageTo("top");
         this.overlay.flashCommand("top");
-        this.aiAgent.addAgentMessage("Scrolled to top of page", "go to top", "At the top");
+        this.aiAgent.addAgentMessage("Scrolled to top of page", "top", null);
         break;
 
       case "GO_BOTTOM":
         this._scrollPageTo("bottom");
         this.overlay.flashCommand("bottom");
-        this.aiAgent.addAgentMessage("Scrolled to bottom of page", "go to bottom", "At the bottom");
+        this.aiAgent.addAgentMessage("Scrolled to bottom of page", "bottom", null);
         break;
 
       case "GO_BACK":
         this.overlay.flashCommand("go back");
-        this.aiAgent.addAgentMessage("Navigating back in browser history", "back", "Going back");
+        this.aiAgent.addAgentMessage("Navigating back in browser history", "back", null);
         setTimeout(() => window.history.back(), 150);
         break;
 
       case "GO_FORWARD":
         this.overlay.flashCommand("go forward");
-        this.aiAgent.addAgentMessage("Navigating forward in browser history", "forward", "Going forward");
+        this.aiAgent.addAgentMessage("Navigating forward in browser history", "forward", null);
         setTimeout(() => window.history.forward(), 150);
         break;
 
       case "RELOAD":
         this.overlay.flashCommand("reload");
-        this.aiAgent.addAgentMessage("Reloading page...", "reload", "Reloading");
+        this.aiAgent.addAgentMessage("Reloading page...", "reload", null);
         setTimeout(() => window.location.reload(), 200);
         break;
 
@@ -613,16 +654,16 @@ export class VoiceController {
         const clicked = this._clickCursorTarget();
         this.overlay.flashCommand("click", clicked);
         this.aiAgent.addAgentMessage(
-          clicked ? "Simulated click at cursor target" : "No interactive element found at cursor",
+          clicked ? "Simulated click at target" : "No element found at cursor",
           "click",
-          clicked ? "Done" : "No element"
+          null
         );
         break;
 
       case "DOUBLE_CLICK":
         const dblClicked = this._clickCursorTarget(true);
         this.overlay.flashCommand("double click", dblClicked);
-        this.aiAgent.addAgentMessage("Simulated double-click at cursor target", "double click", "Double clicked");
+        this.aiAgent.addAgentMessage("Simulated double-click at target", "double click", null);
         break;
 
       case "PRESS_ENTER": {
@@ -633,7 +674,7 @@ export class VoiceController {
           this._pressEnter();
         }
         this.overlay.flashCommand("press enter");
-        this.aiAgent.addAgentMessage("Pressed Enter key on active element", "enter", "Enter");
+        this.aiAgent.addAgentMessage("Pressed Enter key on active element", "enter", null);
         break;
       }
 
@@ -642,19 +683,20 @@ export class VoiceController {
         if (activeInput) {
           this._clearActiveInput(activeInput);
         }
+        this.aiAgent.addAgentMessage("Cleared active text field", "clear", null);
         break;
       }
 
       case "PRESS_TAB":
         this._pressTab();
         this.overlay.flashCommand("tab");
-        this.aiAgent.addAgentMessage("Advanced focus to next field", "tab", "Tab");
+        this.aiAgent.addAgentMessage("Advanced focus to next field", "tab", null);
         break;
 
       case "PRESS_ESCAPE":
         if (document.activeElement) document.activeElement.blur();
         this.overlay.flashCommand("escape");
-        this.aiAgent.addAgentMessage("Pressed Escape / blurred focus", "escape", "Escape");
+        this.aiAgent.addAgentMessage("Pressed Escape / blurred focus", "escape", null);
         break;
 
       case "SEARCH_PAGE":
@@ -667,14 +709,16 @@ export class VoiceController {
 
       case "START_DICTATION":
         this.setMode("dictation");
+        this.overlay.show("dictation");
         this.overlay.flashCommand("start dictation");
-        this.aiAgent.addAgentMessage("Dictation mode active. Speak naturally to fill fields. Say 'stop dictation' to exit.", "start dictation", "Dictation active");
+        this.aiAgent.addAgentMessage("Dictation mode active. Speak naturally to fill fields. Say 'stop dictation' to exit.", "dictation", null);
         break;
 
       case "STOP_DICTATION":
         this.setMode("command");
+        this.overlay.show("command");
         this.overlay.flashCommand("stop dictation");
-        this.aiAgent.addAgentMessage("Switched back to command mode.", "stop dictation", "Command mode");
+        this.aiAgent.addAgentMessage("Switched back to command mode.", "command mode", null);
         break;
 
       case "CALIBRATE":
@@ -818,28 +862,36 @@ export class VoiceController {
     const searchInput = this._findSearchInput();
 
     if (!cleanQuery) {
-      // If user just said "search" or "find", focus the search bar
+      // If user just said "search" or "find", focus the search bar and switch to dictation
       if (searchInput) {
         searchInput.focus();
-        this.overlay.flashCommand("search focused");
-        this.aiAgent.addAgentMessage("Search input focused. Speak or type your search query.", "search", "Search input focused");
+        this.setMode("dictation");
+        this.overlay.show("dictation");
+        this.overlay.flashCommand("Search active — speak to type");
+        this.aiAgent.addAgentMessage("Search input focused. Speak your query to type.", "search", null);
       } else {
         this.overlay.flashCommand("no search bar", false);
-        this.aiAgent.addAgentMessage("No search input on page. Say 'search [query]' to search Google.", "search", "Say search followed by query");
+        this.aiAgent.addAgentMessage("No search input on page. Say 'search [query]' to search Google.", "search", null);
       }
       return;
     }
 
     if (searchInput && !isGoogle) {
       searchInput.focus();
-      this._setInputValue(searchInput, cleanQuery);
+      let inserted = false;
+      try {
+        inserted = document.execCommand("insertText", false, cleanQuery);
+      } catch (_) {}
+      if (!inserted) {
+        this._setInputValue(searchInput, cleanQuery);
+      }
       this._pressEnter(searchInput);
       this.overlay.flashCommand(`search: ${cleanQuery}`);
-      this.aiAgent.addAgentMessage(`Searched for "${cleanQuery}" on page`, "search", `Searching for ${cleanQuery}`);
+      this.aiAgent.addAgentMessage(`Searched for "${cleanQuery}" on page`, "search", null);
     } else {
       // Direct navigation to Google Search
       this.overlay.flashCommand(`google: ${cleanQuery}`);
-      this.aiAgent.addAgentMessage(`Searching Google for "${cleanQuery}"...`, "search", `Searching Google for ${cleanQuery}`);
+      this.aiAgent.addAgentMessage(`Searching Google for "${cleanQuery}"...`, "search", null);
       setTimeout(() => {
         window.location.href = `https://www.google.com/search?q=${encodeURIComponent(cleanQuery)}`;
       }, 350);
@@ -849,21 +901,33 @@ export class VoiceController {
   _typeText(text) {
     if (!text) return;
 
-    const cleanText = text.replace(/^(?:type|write|input)\s+/i, "").trim();
-    let target = document.activeElement;
+    const cleanText = text.replace(/^(?:type|write|input)\s*/i, "").trim();
+    if (!cleanText) return;
 
-    if (!target || target === document.body || target === document.documentElement) {
+    let target = this._getActiveInput();
+    if (!target) {
       target = this._findSearchInput();
     }
 
     if (target) {
       target.focus();
-      this._setInputValue(target, cleanText);
-      this.overlay.flashCommand(`type: ${cleanText}`);
-      this.aiAgent.addAgentMessage(`Typed "${cleanText}" into field`, "type");
+
+      let inserted = false;
+      try {
+        inserted = document.execCommand("insertText", false, cleanText);
+      } catch (_) {
+        inserted = false;
+      }
+
+      if (!inserted) {
+        this._setInputValue(target, (target.value || "") + cleanText);
+      }
+
+      this.overlay.flashCommand(`typed: ${cleanText}`);
+      this.aiAgent.addAgentMessage(`Typed "${cleanText}" into field`, "type", null);
     } else {
       this.overlay.flashCommand("no input field", false);
-      this.aiAgent.addAgentMessage("Could not find an active text input to type into.", "type");
+      this.aiAgent.addAgentMessage("Could not find an active text input to type into.", "type", null);
     }
   }
 
@@ -922,25 +986,34 @@ export class VoiceController {
   }
 
   _clickCursorTarget(isDoubleClick = false) {
-    const cursor = window.__handsfree_cursor || {
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2
-    };
+    const cursor = window.__handsfree_cursor;
+    let x = typeof cursor?.currentX === "number" ? cursor.currentX : (cursor?.x ?? window.innerWidth / 2);
+    let y = typeof cursor?.currentY === "number" ? cursor.currentY : (cursor?.y ?? window.innerHeight / 2);
 
-    const x = cursor?.currentX ?? cursor?.x;
-    const y = cursor?.currentY ?? cursor?.y;
+    let rawElement = null;
+    try {
+      rawElement = document.elementFromPoint(x, y);
+    } catch (_) {}
 
-    let element = document.elementFromPoint(x, y);
-
-    if (!element || element === document.body || element === document.documentElement || element.id?.startsWith("handsfree")) {
+    if (
+      !rawElement ||
+      rawElement === document.body ||
+      rawElement === document.documentElement ||
+      rawElement.id?.startsWith("handsfree") ||
+      rawElement.closest?.("#handsfree-ai-agent-window") ||
+      rawElement.closest?.("#handsfree-sleep-orb-container")
+    ) {
       if (document.activeElement && document.activeElement !== document.body) {
-        element = document.activeElement;
-      } else {
-        element = document.querySelector("a, button, input") || element;
+        rawElement = document.activeElement;
       }
     }
 
-    if (!element) return false;
+    if (!rawElement) return false;
+
+    // Find nearest actionable interactive element (anchor, button, input, textarea, select, role=button)
+    const targetElement = rawElement.closest?.(
+      "a[href], button, input, textarea, select, [role='button'], [role='link'], [role='checkbox'], [role='tab'], [contenteditable='true'], label"
+    ) || rawElement;
 
     const eventInit = {
       view: window,
@@ -950,40 +1023,36 @@ export class VoiceController {
       clientY: y
     };
 
-    element.dispatchEvent(new MouseEvent("mousedown", eventInit));
-    element.dispatchEvent(new MouseEvent("mouseup", eventInit));
-    element.dispatchEvent(new MouseEvent("click", eventInit));
+    targetElement.dispatchEvent(new MouseEvent("mousedown", eventInit));
+    targetElement.dispatchEvent(new MouseEvent("mouseup", eventInit));
+    targetElement.dispatchEvent(new MouseEvent("click", eventInit));
 
     if (isDoubleClick) {
-      element.dispatchEvent(new MouseEvent("mousedown", eventInit));
-      element.dispatchEvent(new MouseEvent("mouseup", eventInit));
-      element.dispatchEvent(new MouseEvent("click", eventInit));
-      element.dispatchEvent(new MouseEvent("dblclick", eventInit));
+      targetElement.dispatchEvent(new MouseEvent("mousedown", eventInit));
+      targetElement.dispatchEvent(new MouseEvent("mouseup", eventInit));
+      targetElement.dispatchEvent(new MouseEvent("click", eventInit));
+      targetElement.dispatchEvent(new MouseEvent("dblclick", eventInit));
     }
 
-    // If clicked element is an input, focus it and switch to dictation
-    const inputEl = this._findInputElement(element);
-    if (inputEl) {
+    if (this._isInputElement(targetElement)) {
       try {
-        inputEl.focus({ preventScroll: true });
+        targetElement.focus({ preventScroll: true });
       } catch (_) {
-        try { inputEl.focus(); } catch (e) {}
+        try { targetElement.focus(); } catch (e) {}
       }
+      this.setMode("dictation");
       this.overlay.show("dictation");
       this.overlay.flashCommand("Search/Input active — speak to type");
     } else {
-      if (typeof element.focus === "function") {
-        element.focus();
-      }
-      if (typeof element.click === "function") {
-        element.click();
+      if (typeof targetElement.click === "function") {
+        try { targetElement.click(); } catch (_) {}
       }
     }
 
-    const originalOutline = element.style.outline;
-    element.style.outline = "2px solid #2dd4bf";
+    const originalOutline = targetElement.style.outline;
+    targetElement.style.outline = "2px solid #2dd4bf";
     setTimeout(() => {
-      element.style.outline = originalOutline;
+      targetElement.style.outline = originalOutline;
     }, 400);
 
     return true;
@@ -1098,19 +1167,26 @@ export class VoiceController {
   }
 
   _handleAiQuery(query, rawTranscript) {
-    const pageTitle = document.title || "this webpage";
-    let reply = `I heard: "${rawTranscript}". `;
-
-    const lower = query.toLowerCase();
-    if (lower.includes("page") || lower.includes("about") || lower.includes("summary") || lower.includes("what is this")) {
-      const metaDesc = document.querySelector('meta[name="description"]')?.content;
-      const firstP = document.querySelector('p')?.innerText?.slice(0, 200);
-      reply += `You are viewing "${pageTitle}". ${metaDesc || firstP || "Say 'scroll down' to explore or 'show targets' to click links."}`;
-    } else {
-      reply += `Handsfree is listening. Say 'search [query]' to search, 'type [text]' to type, 'show targets' for numbered buttons, or 'help' for commands.`;
+    const activeInput = this._getActiveInput();
+    if (activeInput) {
+      this._typeText(rawTranscript);
+      return;
     }
 
-    this.aiAgent.addAgentMessage(reply);
-    this.overlay.flashCommand(`heard: ${rawTranscript.slice(0, 15)}`);
+    const pageTitle = document.title || "this webpage";
+    const lower = query.toLowerCase();
+
+    if (lower.includes("page") || lower.includes("about") || lower.includes("summary") || lower.includes("what is this")) {
+      const metaDesc = document.querySelector('meta[name="description"]')?.content;
+      const firstP = document.querySelector('p')?.innerText?.slice(0, 160);
+      const summary = `You are on "${pageTitle}". ${metaDesc || firstP || "Webpage loaded."}`;
+      this.aiAgent.addAgentMessage(summary, "page info", summary);
+      this.overlay.flashCommand("page info");
+      return;
+    }
+
+    // For unrecognized speech or ambient noise: display visually in dock and chat, NEVER speak aloud!
+    this.aiAgent.addAgentMessage(`Heard: "${rawTranscript}"`, "heard", null);
+    this.overlay.flashCommand(`heard: ${rawTranscript.slice(0, 18)}`);
   }
 }

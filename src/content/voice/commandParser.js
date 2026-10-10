@@ -64,7 +64,7 @@ const COMMANDS = [
 
   // Clicks & Actions
   { phrases: ["double click", "double-click"], type: "DOUBLE_CLICK" },
-  { phrases: ["click", "select", "press"], type: "CLICK" },
+  { phrases: ["click", "select", "press", "tap"], type: "CLICK" },
 
   // Keyboard & Form Controls
   { phrases: ["press enter", "hit enter", "enter", "submit"], type: "PRESS_ENTER" },
@@ -73,8 +73,8 @@ const COMMANDS = [
   { phrases: ["clear", "clear text", "clear input", "delete all"], type: "CLEAR_INPUT" },
 
   // Dictation & Typing
-  { phrases: ["start dictation", "start typing", "begin dictation"], type: "START_DICTATION" },
-  { phrases: ["stop dictation", "stop typing", "end dictation"], type: "STOP_DICTATION" },
+  { phrases: ["start dictation", "start typing", "begin dictation", "type", "dictate", "start type"], type: "START_DICTATION" },
+  { phrases: ["stop dictation", "stop typing", "end dictation", "cancel typing"], type: "STOP_DICTATION" },
 
   // Targets & Numbers
   { phrases: ["show targets", "show numbers", "show badges", "targets", "numbers"], type: "SHOW_TARGETS" },
