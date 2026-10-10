@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CursorController Visual Test — Bit 3</title>
+  <!-- Load the actual project overlay CSS -->
+  <link rel="stylesheet" href="../src/content/styles/overlay.css">
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0b0f19;
+      color: #f1f5f9;
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+
+    .panel {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 32px 40px;
+      text-align: center;
+      max-width: 580px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      z-index: 10;
+    }
+
+    h1 {
+      font-size: 26px;
+      margin: 0 0 8px 0;
+      background: linear-gradient(135deg, #60a5fa, #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p.subtitle {
+      color: #94a3b8;
+      font-size: 14px;
+      margin: 0 0 24px 0;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    button {
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    button.primary {
+      background: #3b82f6;
+      color: white;
+    }
+    button.primary:hover { background: #2563eb; }
+
+    button.secondary {
+      background: #334155;
+      color: #e2e8f0;
+    }
+    button.secondary:hover { background: #475569; }
+
+    button.danger {
+      background: #ef4444;
+      color: white;
+    }
+    button.danger:hover { background: #dc2626; }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      background: #1e293b;
+      color: #94a3b8;
+      margin-bottom: 16px;
+    }
+    .status-badge.active {
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+    .status-badge.paused {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .targets-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .target-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+      padding: 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+
+    .info-footer {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="panel">
+    <h1>🎯 Head-Tracking Blue Cursor (Bit 3)</h1>
+    <p class="subtitle">Move your head naturally to glide the glowing blue cursor across the screen.</p>
+
+    <div id="statusBadge" class="status-badge">Status: Idle</div>
+
+    <div class="btn-group">
+      <button id="btnStart" class="primary">▶ Start Cursor</button>
+      <button id="btnPause" class="secondary" disabled>⏸ Pause</button>
+      <button id="btnResume" class="secondary" disabled>▶ Resume</button>
+      <button id="btnCalibrate" class="secondary" disabled>🎯 Calibrate</button>
+      <button id="btnStop" class="danger" disabled>⏹ Stop</button>
+    </div>
+
+    <!-- Live Speed & Smoothing Controls -->
+    <div style="background: rgba(15, 23, 42, 0.7); border-radius: 10px; padding: 14px 20px; margin-bottom: 20px; text-align: left; font-size: 13px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <label for="sensitivitySlider" style="color: #cbd5e1; font-weight: 500;">⚡ Speed / Sensitivity: <span id="sensitivityVal" style="color: #38bdf8; font-weight: 700;">6</span></label>
+        <input type="range" id="sensitivitySlider" min="1" max="20" step="0.5" value="6" style="width: 180px; cursor: pointer;">
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <label for="smoothingSlider" style="color: #cbd5e1; font-weight: 500;">🌊 Smoothing (Gliding): <span id="smoothingVal" style="color: #4ade80; font-weight: 700;">0.65</span></label>
+        <input type="range" id="smoothingSlider" min="0.1" max="0.9" step="0.05" value="0.65" style="width: 180px; cursor: pointer;">
+      </div>
+    </div>
+
+    <div class="targets-grid">
+      <div class="target-card">↖ Top Left Target</div>
+      <div class="target-card">↑ Top Center Target</div>
+      <div class="target-card">↗ Top Right Target</div>
+      <div class="target-card">← Left Target</div>
+      <div class="target-card">⊙ Center Target</div>
+      <div class="target-card">→ Right Target</div>
+    </div>
+
+    <div class="info-footer">
+      💡 Tip: Sit upright and look directly forward, then click <strong>Start Cursor</strong>. Click <strong>Calibrate</strong> anytime to recenter!
+    </div>
+  </div>
+
+  <script type="module">
+    import { CursorController } from "../src/content/cursor/cursorController.js";
+
+    const cursor = new CursorController();
+
+    const btnStart = document.getElementById("btnStart");
+    const btnPause = document.getElementById("btnPause");
+    const btnResume = document.getElementById("btnResume");
+    const btnCalibrate = document.getElementById("btnCalibrate");
+    const btnStop = document.getElementById("btnStop");
+    const statusBadge = document.getElementById("statusBadge");
+
+    function setUIState(state) {
+      if (state === "running") {
+        btnStart.disabled = true;
+        btnPause.disabled = false;
+        btnResume.disabled = true;
+        btnCalibrate.disabled = false;
+        btnStop.disabled = false;
+        statusBadge.className = "status-badge active";
+        statusBadge.textContent = "Status: 🟢 Tracking Active — Move Head";
+      } else if (state === "paused") {
+        btnPause.disabled = true;
+        btnResume.disabled = false;
+        statusBadge.className = "status-badge paused";
+        statusBadge.textContent = "Status: 🟡 Paused — Dot Dimmed";
+      } else {
+        btnStart.disabled = false;
+        btnPause.disabled = true;
+        btnResume.disabled = true;
+        btnCalibrate.disabled = true;
+        btnStop.disabled = true;
+        statusBadge.className = "status-badge";
+        statusBadge.textContent = "Status: Idle";
+      }
+    }
+
+    btnStart.addEventListener("click", async () => {
+      statusBadge.textContent = "Status: ⏳ Initializing Camera & MediaPipe...";
+      try {
+        await cursor.start();
+        setUIState("running");
+      } catch (err) {
+        alert("Could not start tracking: " + err.message);
+        setUIState("idle");
+      }
+    });
+
+    btnPause.addEventListener("click", () => {
+      cursor.pause();
+      setUIState("paused");
+    });
+
+    btnResume.addEventListener("click", () => {
+      cursor.resume();
+      setUIState("running");
+    });
+
+    btnCalibrate.addEventListener("click", () => {
+      cursor.calibrate();
+      statusBadge.textContent = "Status: 🎯 Calibrated to current head position!";
+      setTimeout(() => {
+        if (cursor.isTracking && !cursor.isPaused) {
+          statusBadge.textContent = "Status: 🟢 Tracking Active — Move Head";
+        }
+      }, 1500);
+    });
+
+    btnStop.addEventListener("click", () => {
+      cursor.stop();
+      setUIState("idle");
+    });
+
+    // Slider event listeners
+    const sensitivitySlider = document.getElementById("sensitivitySlider");
+    const sensitivityVal = document.getElementById("sensitivityVal");
+    sensitivitySlider.addEventListener("input", (e) => {
+      const val = parseFloat(e.target.value);
+      sensitivityVal.textContent = val;
+      cursor.setSensitivity(val);
+    });
+
+    const smoothingSlider = document.getElementById("smoothingSlider");
+    const smoothingVal = document.getElementById("smoothingVal");
+    smoothingSlider.addEventListener("input", (e) => {
+      const val = parseFloat(e.target.value);
+      smoothingVal.textContent = val;
+      cursor.setSmoothing(val);
+    });
+  </script>
+</body>
+</html>
