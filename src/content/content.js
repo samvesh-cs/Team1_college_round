@@ -1,9 +1,11 @@
 import { MSG } from "../shared/messages.js";
 import { getDefaults, loadSettings, validateSettingsPatch } from "../shared/settings.js";
 import { CursorController } from "./cursor/cursorController.js";
+import { VoiceController } from "./voice/voiceController.js";
 import { DwellController } from "./activation/dwellController.js";
 import { TargetManager } from "./activation/targetManager.js";
 import "./styles/overlay.css";
+import "./styles/voice-overlay.css";
 import "./styles/activation-overlay.css";
 
 console.log("[Handsfree] Content script loaded.");
@@ -20,6 +22,10 @@ if (!window.__handsfree_content_initialized) {
   // === WS-1: Head-Tracking Virtual Cursor ===
   const cursor = new CursorController();
   window.__handsfree_cursor = cursor;
+
+  // === WS-2: Voice Controller ===
+  const voiceController = new VoiceController();
+  window.__handsfree_voice = voiceController;
 
   // === WS-3: Dwell Activation & Target Management ===
   const dwellController = new DwellController();
@@ -90,6 +96,7 @@ if (!window.__handsfree_content_initialized) {
       rafId = null;
     }
     cursor.stop();
+    voiceController.stop();
     dwellController.destroy();
     targetManager.destroy();
   });
@@ -144,13 +151,34 @@ if (!window.__handsfree_content_initialized) {
         sendResponse({ ok: true, status: "calibrated" });
         break;
 
+      // === WS-2: Voice Commands & Dictation ===
+      case MSG.START_VOICE:
+        voiceController.start();
+        sendResponse({ ok: true, status: "voice_started" });
+        break;
+
+      case MSG.STOP_VOICE:
+        voiceController.stop();
+        sendResponse({ ok: true, status: "voice_stopped" });
+        break;
+
+      case MSG.START_DICTATION:
+        voiceController.setMode("dictation");
+        sendResponse({ ok: true, status: "dictation_started" });
+        break;
+
+      case MSG.STOP_DICTATION:
+        voiceController.setMode("command");
+        sendResponse({ ok: true, status: "dictation_stopped" });
+        break;
+
       // === WS-4: Status / Telemetry ===
       case MSG.GET_STATUS:
         sendResponse({
           ok: true,
           tracking: cursor.isTracking,
           paused: cursor.isPaused,
-          voice: false,
+          voice: voiceController.enabled,
           fps: 60,
           calibrated: true,
           settings: { ...currentSettings },

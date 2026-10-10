@@ -1,0 +1,39 @@
+#handsfree-voice-overlay {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.9);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 2147483647; /* Maximum z-index */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#handsfree-voice-overlay.hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
+}
+
+.handsfree-voice-icon {
+  font-size: 16px;
+}
+
+.handsfree-voice-command {
+  color: #34d399; /* emerald-400 */
+  font-family: monospace;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}

@@ -9,6 +9,10 @@ export const MSG = {
   GET_STATUS:       "GET_STATUS",
   STATUS_REPORT:    "STATUS_REPORT",
 
+  // Workstream 2 — Voice Commands & Dictation
+  START_DICTATION:  "START_DICTATION",
+  STOP_DICTATION:   "STOP_DICTATION",
+
   // Workstream 4 — Settings & Telemetry
   UPDATE_SETTINGS:  "UPDATE_SETTINGS",
   SETTINGS_CHANGED: "SETTINGS_CHANGED",
