@@ -28,7 +28,13 @@ export class VoiceOverlay {
     this.commandElement.style.display = "none";
     this.element.appendChild(this.commandElement);
 
-    document.body.appendChild(this.element);
+    if (document.body) {
+      document.body.appendChild(this.element);
+    } else {
+      document.addEventListener("DOMContentLoaded", () => {
+        (document.body || document.documentElement).appendChild(this.element);
+      });
+    }
     
     this.hideTimeout = null;
     this.commandTimeout = null;

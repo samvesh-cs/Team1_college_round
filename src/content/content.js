@@ -43,18 +43,23 @@ try {
   console.warn("[Handsfree] Storage access warning:", e);
 }
 
+window.__handsfree_voiceController = voiceController;
+
 // Runtime message listener as direct channel
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log("[Handsfree] Received message:", message.type, message);
+  console.log("[Handsfree] Received runtime message:", message.type, message);
   
   // === WS-2 (Jay) Voice Engine Activation ===
   if (message.type === MSG.START_VOICE || message.type === MSG.START_TRACKING) {
-    voiceController.start(message.agentState || "bar");
+    const targetState = message.agentState || "bar";
+    console.log("[Handsfree] Activating voiceController with state:", targetState);
+    voiceController.start(targetState);
   } else if (message.type === MSG.STOP_VOICE || message.type === MSG.STOP_TRACKING) {
+    console.log("[Handsfree] Deactivating voiceController");
     voiceController.stop();
   }
   // ==========================================
   
-  sendResponse({ ok: true });
+  sendResponse({ ok: true, enabled: voiceController.enabled });
   return true;
 });

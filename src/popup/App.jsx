@@ -200,7 +200,7 @@ export default function App() {
     }
   };
 
-  // 5. Engine Toggle with Local Storage Persistence
+  // 5. Engine Toggle with Local Storage Persistence & Direct Active Tab Activation
   const toggleEngine = () => {
     const nextState = !isRunning;
     setIsRunning(nextState);
@@ -213,12 +213,52 @@ export default function App() {
       });
     }
 
+    const startPayload = { type: MSG.START_VOICE, agentState: 'bar' };
+    const stopPayload = { type: MSG.STOP_VOICE };
+
     if (nextState) {
       if (trackingEnabled) send(MSG.START_TRACKING);
-      if (voiceEnabled) send(MSG.START_VOICE, { agentState: 'bar' });
+      if (voiceEnabled) send(MSG.START_VOICE, startPayload);
     } else {
       send(MSG.STOP_TRACKING);
       send(MSG.STOP_VOICE);
+    }
+
+    // Direct active web tab dispatch with automated script injection fallback
+    if (typeof chrome !== 'undefined' && chrome.tabs?.query) {
+      chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+        const activeTab = tabs?.[0];
+        if (
+          activeTab?.id &&
+          activeTab.url &&
+          !activeTab.url.startsWith("chrome://") &&
+          !activeTab.url.startsWith("chrome-extension://") &&
+          !activeTab.url.startsWith("edge://")
+        ) {
+          const targetMsg = nextState ? startPayload : stopPayload;
+          chrome.tabs.sendMessage(activeTab.id, targetMsg, () => {
+            if (chrome.runtime.lastError && nextState && chrome.scripting) {
+              // Inject content scripts into already-open unrefreshed tab
+              chrome.scripting.insertCSS({
+                target: { tabId: activeTab.id },
+                files: [
+                  "src/content/styles/overlay.css",
+                  "src/content/styles/voice-overlay.css",
+                  "src/content/styles/ai-agent.css"
+                ]
+              }).catch(() => {});
+              chrome.scripting.executeScript({
+                target: { tabId: activeTab.id },
+                files: ["src/content/content.js"]
+              }).then(() => {
+                setTimeout(() => {
+                  chrome.tabs.sendMessage(activeTab.id, startPayload).catch(() => {});
+                }, 200);
+              }).catch(() => {});
+            }
+          });
+        }
+      });
     }
   };
 

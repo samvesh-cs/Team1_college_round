@@ -45,7 +45,13 @@ export class AiVoiceAgent {
       </div>
     `;
 
-    document.body.appendChild(this.orbContainer);
+    if (document.body) {
+      document.body.appendChild(this.orbContainer);
+    } else {
+      document.addEventListener("DOMContentLoaded", () => {
+        (document.body || document.documentElement).appendChild(this.orbContainer);
+      });
+    }
 
     this.orbTrigger = this.orbContainer.querySelector("#handsfree-orb-trigger");
     this.orbToast = this.orbContainer.querySelector("#handsfree-orb-toast");
@@ -152,7 +158,13 @@ export class AiVoiceAgent {
       </div>
     `;
 
-    document.body.appendChild(this.windowElement);
+    if (document.body) {
+      document.body.appendChild(this.windowElement);
+    } else {
+      document.addEventListener("DOMContentLoaded", () => {
+        (document.body || document.documentElement).appendChild(this.windowElement);
+      });
+    }
 
     this.chatBody = this.windowElement.querySelector("#handsfree-chat-body");
     this.dockInput = this.windowElement.querySelector("#handsfree-dock-input");
@@ -224,42 +236,96 @@ export class AiVoiceAgent {
     } catch (e) {}
   }
 
+  _ensureMounted() {
+    try {
+      const root = document.body || document.documentElement;
+      if (this.orbContainer && (!this.orbContainer.parentNode || !document.contains(this.orbContainer))) {
+        root && root.appendChild(this.orbContainer);
+      }
+      if (this.windowElement && (!this.windowElement.parentNode || !document.contains(this.windowElement))) {
+        root && root.appendChild(this.windowElement);
+      }
+    } catch (e) {}
+  }
+
   /* ----------------------------------------------------
      3. 3-STATE TRANSITIONS
   ---------------------------------------------------- */
   // State 1: Sleep Orb
   toOrb() {
+    this._ensureMounted();
     this.state = "orb";
+
+    // Hide chat / bar
     this.windowElement.classList.add("hidden");
+    this.windowElement.style.setProperty("display", "none", "important");
+
+    // Show sleep orb with guaranteed visibility
     this.orbContainer.classList.remove("hidden");
+    this.orbContainer.style.setProperty("display", "flex", "important");
+    this.orbContainer.style.setProperty("opacity", "1", "important");
+    this.orbContainer.style.setProperty("visibility", "visible", "important");
+    this.orbContainer.style.setProperty("pointer-events", "auto", "important");
+    this.orbContainer.style.setProperty("z-index", "2147483647", "important");
+
     this._persistState("orb");
   }
 
   // State 2: Slim Floating Pill Dock Bar (Image 4)
   toBar() {
+    this._ensureMounted();
     this.state = "bar";
+
+    // Hide sleep orb
     this.orbContainer.classList.add("hidden");
+    this.orbContainer.style.setProperty("display", "none", "important");
+
+    // Show floating pill bar with guaranteed visibility
     this.windowElement.classList.remove("hidden");
     this.windowElement.classList.remove("mode-chat");
     this.windowElement.classList.add("mode-bar");
+    this.windowElement.style.setProperty("display", "flex", "important");
+    this.windowElement.style.setProperty("opacity", "1", "important");
+    this.windowElement.style.setProperty("visibility", "visible", "important");
+    this.windowElement.style.setProperty("pointer-events", "auto", "important");
+    this.windowElement.style.setProperty("z-index", "2147483647", "important");
 
     // Chevron points UP (ready to expand to chat)
-    this.expandIcon.innerHTML = `<polyline points="18 15 12 9 6 15"></polyline>`;
-    this.expandBtn.title = "Expand chat history (or say 'expand more')";
+    if (this.expandIcon) {
+      this.expandIcon.innerHTML = `<polyline points="18 15 12 9 6 15"></polyline>`;
+    }
+    if (this.expandBtn) {
+      this.expandBtn.title = "Expand chat history (or say 'expand more')";
+    }
     this._persistState("bar");
   }
 
   // State 3: Full Expanded Chat History Window (Image 1)
   toChat() {
+    this._ensureMounted();
     this.state = "chat";
+
+    // Hide sleep orb
     this.orbContainer.classList.add("hidden");
+    this.orbContainer.style.setProperty("display", "none", "important");
+
+    // Show full chat window with guaranteed visibility
     this.windowElement.classList.remove("hidden");
     this.windowElement.classList.remove("mode-bar");
     this.windowElement.classList.add("mode-chat");
+    this.windowElement.style.setProperty("display", "flex", "important");
+    this.windowElement.style.setProperty("opacity", "1", "important");
+    this.windowElement.style.setProperty("visibility", "visible", "important");
+    this.windowElement.style.setProperty("pointer-events", "auto", "important");
+    this.windowElement.style.setProperty("z-index", "2147483647", "important");
 
     // Chevron points DOWN (ready to collapse back to bar)
-    this.expandIcon.innerHTML = `<polyline points="6 9 12 15 18 9"></polyline>`;
-    this.expandBtn.title = "Collapse to dock bar (or say 'collapse')";
+    if (this.expandIcon) {
+      this.expandIcon.innerHTML = `<polyline points="6 9 12 15 18 9"></polyline>`;
+    }
+    if (this.expandBtn) {
+      this.expandBtn.title = "Collapse to dock bar (or say 'collapse')";
+    }
     this.scrollToBottom();
     this._persistState("chat");
   }

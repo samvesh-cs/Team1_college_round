@@ -22,15 +22,45 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Forward to all accessible web tabs
     chrome.tabs.query({}, (tabs) => {
       for (const tab of tabs) {
-        if (
-          tab.id &&
-          tab.url &&
-          !tab.url.startsWith("chrome://") &&
-          !tab.url.startsWith("chrome-extension://")
-        ) {
+        if (tab.id) {
+          if (
+            tab.url &&
+            (tab.url.startsWith("chrome://") ||
+              tab.url.startsWith("edge://") ||
+              tab.url.startsWith("chrome-extension://") ||
+              tab.url.startsWith("devtools://") ||
+              tab.url.startsWith("view-source:"))
+          ) {
+            continue;
+          }
+
           chrome.tabs.sendMessage(tab.id, message, () => {
             if (chrome.runtime.lastError) {
-              // Ignore tabs where content script isn't loaded
+              // If tab doesn't have content script injected and engine is starting, inject it dynamically!
+              if (isStarting && chrome.scripting) {
+                chrome.scripting
+                  .insertCSS({
+                    target: { tabId: tab.id },
+                    files: [
+                      "src/content/styles/overlay.css",
+                      "src/content/styles/voice-overlay.css",
+                      "src/content/styles/ai-agent.css",
+                    ],
+                  })
+                  .catch(() => {});
+
+                chrome.scripting
+                  .executeScript({
+                    target: { tabId: tab.id },
+                    files: ["src/content/content.js"],
+                  })
+                  .then(() => {
+                    setTimeout(() => {
+                      chrome.tabs.sendMessage(tab.id, message).catch(() => {});
+                    }, 200);
+                  })
+                  .catch(() => {});
+              }
             }
           });
         }
@@ -44,11 +74,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Forward popup commands to the active web tab
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const activeTab = tabs[0];
-    if (activeTab?.id && activeTab.url && !activeTab.url.startsWith("chrome-extension://")) {
+    if (activeTab?.id) {
       chrome.tabs.sendMessage(activeTab.id, message, sendResponse);
     } else {
-      // If active tab is the extension popup/tab itself, forward to the last active web tab
-      chrome.tabs.query({ url: ["http://*/*", "https://*/*"] }, (webTabs) => {
+      // If active tab is the extension popup/tab itself, forward to the last focused web tab
+      chrome.tabs.query({ active: true, lastFocusedWindow: true }, (webTabs) => {
         if (webTabs[0]?.id) {
           chrome.tabs.sendMessage(webTabs[0].id, message, sendResponse);
         } else {
@@ -63,12 +93,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Auto-restore engine & AI voice agent across page navigation (Google search, back, forward)
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (
-    changeInfo.status === "complete" &&
-    tab.url &&
-    !tab.url.startsWith("chrome://") &&
-    !tab.url.startsWith("chrome-extension://")
-  ) {
+  if (changeInfo.status === "complete") {
+    if (
+      tab.url &&
+      (tab.url.startsWith("chrome://") ||
+        tab.url.startsWith("edge://") ||
+        tab.url.startsWith("chrome-extension://") ||
+        tab.url.startsWith("devtools://"))
+    ) {
+      return;
+    }
+
     chrome.storage.local.get(["engineRunning", "voiceEnabled", "agentState"], (res) => {
       if (res?.engineRunning && res?.voiceEnabled !== false) {
         chrome.tabs.sendMessage(
@@ -80,7 +115,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
           },
           () => {
             if (chrome.runtime.lastError) {
-              // Ignore if content script not yet ready
+              // Tab might not have script yet, ignore
             }
           }
         );
