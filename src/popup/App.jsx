@@ -82,32 +82,26 @@ export default function App() {
           <div>
             <div className="flex items-center gap-1.5">
               <h1 className="text-sm font-bold text-slate-900 tracking-tight leading-none">Handsfree</h1>
-              <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.2 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
-                v2.4 Pro
-              </span>
+              
             </div>
-            <p className="text-[10px] text-slate-500 font-medium mt-0.5">Head-Tracking &amp; Voice Accessibility</p>
           </div>
         </div>
 
         {/* Dynamic Status Indicator */}
         <div
-          className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold border transition-colors ${
-            isRunning
+          className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold border transition-colors ${isRunning
               ? 'bg-teal-50 border-teal-300 text-teal-800 shadow-xs'
               : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-          }`}
+            }`}
         >
           <span className="relative flex h-2 w-2">
             <span
-              className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                isRunning ? 'bg-teal-500 animate-ping' : 'bg-emerald-500 animate-ping'
-              }`}
+              className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${isRunning ? 'bg-teal-500 animate-ping' : 'bg-emerald-500 animate-ping'
+                }`}
             ></span>
             <span
-              className={`relative inline-flex rounded-full h-2 w-2 ${
-                isRunning ? 'bg-teal-600' : 'bg-emerald-600'
-              }`}
+              className={`relative inline-flex rounded-full h-2 w-2 ${isRunning ? 'bg-teal-600' : 'bg-emerald-600'
+                }`}
             ></span>
           </span>
           <span>{isRunning ? 'Active' : 'Ready'}</span>
@@ -119,11 +113,10 @@ export default function App() {
         <div className="bg-slate-200/60 p-0.5 rounded-lg flex items-center gap-0.5">
           <button
             onClick={() => setActiveTab('controls')}
-            className={`flex-1 py-1 px-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors duration-150 ${
-              activeTab === 'controls'
+            className={`flex-1 py-1 px-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors duration-150 ${activeTab === 'controls'
                 ? 'bg-white text-teal-800 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
             type="button"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -134,11 +127,10 @@ export default function App() {
 
           <button
             onClick={() => setActiveTab('calibration')}
-            className={`flex-1 py-1 px-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors duration-150 ${
-              activeTab === 'calibration'
+            className={`flex-1 py-1 px-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors duration-150 ${activeTab === 'calibration'
                 ? 'bg-white text-teal-800 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
             type="button"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -150,11 +142,10 @@ export default function App() {
 
           <button
             onClick={() => setActiveTab('commands')}
-            className={`flex-1 py-1 px-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors duration-150 ${
-              activeTab === 'commands'
+            className={`flex-1 py-1 px-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors duration-150 ${activeTab === 'commands'
                 ? 'bg-white text-teal-800 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
             type="button"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -177,11 +168,10 @@ export default function App() {
               type="button"
             >
               <div
-                className={`relative w-full py-2.5 px-3 rounded-[11px] transition-all flex items-center justify-center gap-2 shadow-md ${
-                  isRunning
+                className={`relative w-full py-2.5 px-3 rounded-[11px] transition-all flex items-center justify-center gap-2 shadow-md ${isRunning
                     ? 'bg-gradient-to-r from-slate-800 to-slate-900 text-white'
                     : 'bg-gradient-to-r from-teal-600 to-cyan-600 group-hover:from-teal-700 group-hover:to-cyan-700 text-white'
-                }`}
+                  }`}
               >
                 {!isRunning && (
                   <div className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 animate-shimmer pointer-events-none"></div>
@@ -219,16 +209,14 @@ export default function App() {
                     if (isRunning) send(next ? MSG.START_TRACKING : MSG.STOP_TRACKING);
                   }}
                   aria-checked={trackingEnabled}
-                  className={`relative inline-flex h-[22px] w-10 p-0.5 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
-                    trackingEnabled ? 'bg-[#0f766e]' : 'bg-slate-300'
-                  }`}
+                  className={`relative inline-flex h-[22px] w-10 p-0.5 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${trackingEnabled ? 'bg-[#0f766e]' : 'bg-slate-300'
+                    }`}
                   role="switch"
                   type="button"
                 >
                   <span
-                    className={`pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${
-                      trackingEnabled ? 'translate-x-[18px]' : 'translate-x-0'
-                    }`}
+                    className={`pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${trackingEnabled ? 'translate-x-[18px]' : 'translate-x-0'
+                      }`}
                   ></span>
                 </button>
               </div>
@@ -253,16 +241,14 @@ export default function App() {
                     if (isRunning) send(next ? MSG.START_VOICE : MSG.STOP_VOICE);
                   }}
                   aria-checked={voiceEnabled}
-                  className={`relative inline-flex h-[22px] w-10 p-0.5 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
-                    voiceEnabled ? 'bg-[#0f766e]' : 'bg-slate-300'
-                  }`}
+                  className={`relative inline-flex h-[22px] w-10 p-0.5 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${voiceEnabled ? 'bg-[#0f766e]' : 'bg-slate-300'
+                    }`}
                   role="switch"
                   type="button"
                 >
                   <span
-                    className={`pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${
-                      voiceEnabled ? 'translate-x-[18px]' : 'translate-x-0'
-                    }`}
+                    className={`pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${voiceEnabled ? 'translate-x-[18px]' : 'translate-x-0'
+                      }`}
                   ></span>
                 </button>
               </div>
@@ -283,16 +269,14 @@ export default function App() {
                 <button
                   onClick={() => setTypingEnabled(!typingEnabled)}
                   aria-checked={typingEnabled}
-                  className={`relative inline-flex h-[22px] w-10 p-0.5 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
-                    typingEnabled ? 'bg-[#0f766e]' : 'bg-slate-300'
-                  }`}
+                  className={`relative inline-flex h-[22px] w-10 p-0.5 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${typingEnabled ? 'bg-[#0f766e]' : 'bg-slate-300'
+                    }`}
                   role="switch"
                   type="button"
                 >
                   <span
-                    className={`pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${
-                      typingEnabled ? 'translate-x-[18px]' : 'translate-x-0'
-                    }`}
+                    className={`pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${typingEnabled ? 'translate-x-[18px]' : 'translate-x-0'
+                      }`}
                   ></span>
                 </button>
               </div>
@@ -318,16 +302,14 @@ export default function App() {
                 <button
                   onClick={() => setIntentLockEnabled(!intentLockEnabled)}
                   aria-checked={intentLockEnabled}
-                  className={`relative inline-flex h-[22px] w-10 p-0.5 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
-                    intentLockEnabled ? 'bg-[#0f766e]' : 'bg-slate-300'
-                  }`}
+                  className={`relative inline-flex h-[22px] w-10 p-0.5 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${intentLockEnabled ? 'bg-[#0f766e]' : 'bg-slate-300'
+                    }`}
                   role="switch"
                   type="button"
                 >
                   <span
-                    className={`pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${
-                      intentLockEnabled ? 'translate-x-[18px]' : 'translate-x-0'
-                    }`}
+                    className={`pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${intentLockEnabled ? 'translate-x-[18px]' : 'translate-x-0'
+                      }`}
                   ></span>
                 </button>
               </div>
@@ -436,13 +418,12 @@ export default function App() {
                 className="absolute top-5 left-6 cursor-pointer"
               >
                 <div
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[9px] font-mono font-bold ${
-                    calibrationStep > 1
+                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[9px] font-mono font-bold ${calibrationStep > 1
                       ? 'border-teal-400 bg-teal-500/20 text-teal-300'
                       : calibrationStep === 1
-                      ? 'border-cyan-400 bg-cyan-500/30 text-white animate-pulse'
-                      : 'border-slate-600 bg-slate-900 text-slate-400'
-                  }`}
+                        ? 'border-cyan-400 bg-cyan-500/30 text-white animate-pulse'
+                        : 'border-slate-600 bg-slate-900 text-slate-400'
+                    }`}
                 >
                   {calibrationStep > 1 ? '✓' : '1'}
                 </div>
@@ -454,13 +435,12 @@ export default function App() {
                 className="absolute top-5 right-6 cursor-pointer"
               >
                 <div
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[9px] font-mono font-bold ${
-                    calibrationStep > 2
+                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[9px] font-mono font-bold ${calibrationStep > 2
                       ? 'border-teal-400 bg-teal-500/20 text-teal-300'
                       : calibrationStep === 2
-                      ? 'border-cyan-400 bg-cyan-500/30 text-white animate-pulse'
-                      : 'border-slate-600 bg-slate-900 text-slate-400'
-                  }`}
+                        ? 'border-cyan-400 bg-cyan-500/30 text-white animate-pulse'
+                        : 'border-slate-600 bg-slate-900 text-slate-400'
+                    }`}
                 >
                   {calibrationStep > 2 ? '✓' : '2'}
                 </div>
@@ -488,13 +468,12 @@ export default function App() {
                 className="absolute bottom-5 left-6 cursor-pointer"
               >
                 <div
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[9px] font-mono font-bold ${
-                    calibrationStep > 4
+                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[9px] font-mono font-bold ${calibrationStep > 4
                       ? 'border-teal-400 bg-teal-500/20 text-teal-300'
                       : calibrationStep === 4
-                      ? 'border-cyan-400 bg-cyan-500/30 text-white animate-pulse'
-                      : 'border-slate-600 bg-slate-900 text-slate-400'
-                  }`}
+                        ? 'border-cyan-400 bg-cyan-500/30 text-white animate-pulse'
+                        : 'border-slate-600 bg-slate-900 text-slate-400'
+                    }`}
                 >
                   {calibrationStep > 4 ? '✓' : '4'}
                 </div>
@@ -506,11 +485,10 @@ export default function App() {
                 className="absolute bottom-5 right-6 cursor-pointer"
               >
                 <div
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[9px] font-mono font-bold ${
-                    calibrationStep === 5
+                  className={`w-5 h-5 rounded-full border flex items-center justify-center text-[9px] font-mono font-bold ${calibrationStep === 5
                       ? 'border-cyan-400 bg-cyan-500/30 text-white animate-pulse'
                       : 'border-slate-600 bg-slate-900 text-slate-400'
-                  }`}
+                    }`}
                 >
                   5
                 </div>
@@ -678,8 +656,6 @@ export default function App() {
 
       {/* Global Compact Footer */}
       <footer className="px-4 py-1.5 bg-white/80 backdrop-blur border-t border-slate-200/80 flex items-center justify-between text-[10px] text-slate-500 font-medium z-10 shrink-0">
-        <span>Handsfree • WebGL &amp; WebAudio</span>
-        <span className="font-mono text-teal-700 font-semibold">ActiveTab Bound</span>
       </footer>
     </div>
   );

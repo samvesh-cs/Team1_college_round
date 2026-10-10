@@ -8,4 +8,9 @@ export const MSG = {
   CALIBRATE:       "CALIBRATE",
   GET_STATUS:      "GET_STATUS",
   STATUS_REPORT:   "STATUS_REPORT",
+
+  // Workstream 3 — Dwell Activation & Target Management
+  SHOW_TARGETS:    "SHOW_TARGETS",
+  HIDE_TARGETS:    "HIDE_TARGETS",
+  CLICK_TARGET:    "CLICK_TARGET",
 };
