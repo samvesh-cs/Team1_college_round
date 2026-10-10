@@ -1,0 +1,35 @@
+{
+  "name": "team1_college_round",
+  "version": "1.0.0",
+  "description": "Handsfree is a Chrome browser extension concept that helps people interact with webpages without relying entirely on a physical mouse or keyboard. It combines webcam-based head tracking, voice commands, voice typing, and deliberate activation to make common browser interactions more accessible.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samvesh-cs/Team1_college_round.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/samvesh-cs/Team1_college_round/issues"
+  },
+  "homepage": "https://github.com/samvesh-cs/Team1_college_round#readme",
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^1.1.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^3.0.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.2",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.3.4"
+  }
+}
