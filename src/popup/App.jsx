@@ -32,6 +32,8 @@ export default function App() {
   const [deadZone, setDeadZone] = useState(0.02);
   const [statusError, setStatusError] = useState(null);
   const [saveError, setSaveError] = useState(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [voiceListening, setVoiceListening] = useState(false);
 
   // === WS-4 Phase D: newest-wins settings core (avoids stale closures) ===
   const settingsRef = useRef(getDefaults());
@@ -136,18 +138,64 @@ export default function App() {
   };
 
   // === WS-4 Phase C: query real content status; show errors instead of fake telemetry ===
+  // Bounded polling while open: the content script may still be initializing
+  // on a freshly restored tab. Terminal errors stop immediately.
+  const describeStatusError = (code) => {
+    if (code === 'RESTRICTED_PAGE') {
+      return 'Extensions cannot run on this page (e.g. chrome:// pages or the Chrome Web Store). Switch to a regular webpage.';
+    }
+    if (code === 'NO_ACTIVE_TAB') {
+      return 'No active tab found. Click the webpage, then open the popup again.';
+    }
+    if (/receiving end|NO_RESPONSE_FROM_CONTENT/i.test(code || '')) {
+      return "Couldn't reach this tab. Reload the page, then open the popup again.";
+    }
+    return `Status unavailable: ${code}. Open a regular web page and reload the extension.`;
+  };
+
   useEffect(() => {
     let mounted = true;
-    requestStatus().then((res) => {
+    let timer = null;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 5;
+    const POLL_INTERVAL_MS = 1500;
+    // Restricted pages can never host a content script: fail fast instead
+    // of polling. Anything else may be slow initialization — keep trying.
+    const isTerminal = (res) =>
+      !!res && res.ok === false && (res.error === 'RESTRICTED_PAGE' || res.error === 'NO_ACTIVE_TAB');
+    const finish = (res) => {
       if (!mounted) return;
       if (!res || res.ok === false) {
         setStatusError(res && res.error ? res.error : 'STATUS_UNAVAILABLE');
+        setVoiceListening(false);
       } else {
         setStatusError(null);
+        setVoiceListening(!!res.listening);
+        // Show Active only for genuinely running modalities, not for
+        // merely enabled preferences.
+        setIsRunning(!!(res.tracking || res.listening));
       }
-    });
+      setIsConnecting(false);
+    };
+    const poll = () => {
+      if (!mounted) return;
+      attempts += 1;
+      requestStatus().then((res) => {
+        if (!mounted) return;
+        if ((res && res.ok) || isTerminal(res) || attempts >= MAX_ATTEMPTS) {
+          finish(res);
+          return;
+        }
+        // Still initializing: show a connecting state and try again.
+        // Next poll starts only after this response — never overlapping.
+        setIsConnecting(true);
+        timer = setTimeout(poll, POLL_INTERVAL_MS);
+      });
+    };
+    poll();
     return () => {
       mounted = false;
+      if (timer) clearTimeout(timer);
     };
   }, []);
 
@@ -286,7 +334,12 @@ export default function App() {
             {/* WS-4 Phase C: real status errors (no fake telemetry) */}
             {statusError && (
               <div className="p-2 rounded-xl bg-red-50 border border-red-200 text-[11px] text-red-700 font-medium" role="alert">
-                Status unavailable: {statusError}. Open a regular web page and reload the extension.
+                {describeStatusError(statusError)}
+              </div>
+            )}
+            {!statusError && isConnecting && (
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 font-medium" role="status">
+                Connecting to this tab…
               </div>
             )}
             {/* WS-4 Phase D: storage save errors (never imply success on failure) */}
@@ -317,7 +370,9 @@ export default function App() {
                   onClick={() => {
                     const next = !settingsRef.current.trackingEnabled;
                     applyLocalUpdate({ trackingEnabled: next });
-                    if (isRunning) send(next ? MSG.START_TRACKING : MSG.STOP_TRACKING);
+                    // Send unconditionally: with auto-activation the content
+                    // script may be running while this popup never started it.
+                    send(next ? MSG.START_TRACKING : MSG.STOP_TRACKING);
                   }}
                   aria-checked={trackingEnabled}
                   className={`relative inline-flex h-[22px] w-10 p-0.5 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${trackingEnabled ? 'bg-[#0f766e]' : 'bg-slate-300'
@@ -341,7 +396,18 @@ export default function App() {
                     </svg>
                   </div>
                   <div>
-                    <h3 className="text-xs font-semibold text-slate-900 leading-tight">Voice Commands</h3>
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-xs font-semibold text-slate-900 leading-tight">Voice Commands</h3>
+                      {voiceEnabled && (
+                        <span className={`text-[9px] px-1 py-0.2 rounded font-mono font-semibold ${
+                          voiceListening
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {voiceListening ? 'LISTENING' : 'IDLE'}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[10px] text-slate-500">"Click", "Scroll", "Back", "Tab"</p>
                   </div>
                 </div>
@@ -349,7 +415,9 @@ export default function App() {
                   onClick={() => {
                     const next = !settingsRef.current.voiceEnabled;
                     applyLocalUpdate({ voiceEnabled: next });
-                    if (isRunning) send(next ? MSG.START_VOICE : MSG.STOP_VOICE);
+                    // Send unconditionally: with auto-activation the content
+                    // script may be running while this popup never started it.
+                    send(next ? MSG.START_VOICE : MSG.STOP_VOICE);
                   }}
                   aria-checked={voiceEnabled}
                   className={`relative inline-flex h-[22px] w-10 p-0.5 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${voiceEnabled ? 'bg-[#0f766e]' : 'bg-slate-300'

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Handsfree Stage-0 Voice Probe (offscreen)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 16px; color: #111; }
+    #status { font-weight: 600; }
+    #log { white-space: pre-wrap; font-family: monospace; font-size: 12px;
+           border: 1px solid #ccc; padding: 8px; max-height: 300px; overflow: auto; }
+    button { margin-right: 8px; }
+  </style>
+</head>
+<body>
+  <!--
+    Stage-0 feasibility probe (isolated, removable).
+    Purpose: answer whether an extension offscreen document can own speech
+    recognition + microphone access. Self-contained: no imports, no build
+    step; delete this file to remove the probe. It does NOT route commands
+    to webpages and does NOT touch the existing voice controller.
+    Deliberately no auto-restart: the probe measures raw recognizer behavior.
+  -->
+  <h1>Handsfree Stage-0 Voice Probe</h1>
+  <p>Status: <span id="status">starting…</span></p>
+  <p>
+    <button id="btn-start" type="button">Start probe</button>
+    <button id="btn-stop" type="button">Stop probe</button>
+  </p>
+  <h2>Diagnostics</h2>
+  <div id="log" aria-live="polite"></div>
+  <script src="./offscreen-voice-probe.js"></script>
+</body>
+</html>

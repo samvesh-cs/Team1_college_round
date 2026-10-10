@@ -22,5 +22,5 @@
       "run_at": "document_idle"
     }
   ],
-  "permissions": ["activeTab", "storage"]
+  "permissions": ["activeTab", "storage", "offscreen"]
 }

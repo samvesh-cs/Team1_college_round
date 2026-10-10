@@ -13,6 +13,10 @@ export const MSG = {
   START_DICTATION:  "START_DICTATION",
   STOP_DICTATION:   "STOP_DICTATION",
 
+  // Voice ownership (at most one active recognition session across tabs)
+  VOICE_YIELD:      "VOICE_YIELD",
+  VOICE_RESUME:     "VOICE_RESUME",
+
   // Workstream 4 — Settings & Telemetry
   UPDATE_SETTINGS:  "UPDATE_SETTINGS",
   SETTINGS_CHANGED: "SETTINGS_CHANGED",
@@ -21,4 +25,11 @@ export const MSG = {
   SHOW_TARGETS:     "SHOW_TARGETS",
   HIDE_TARGETS:     "HIDE_TARGETS",
   CLICK_TARGET:     "CLICK_TARGET",
+
+  // Stage-0 offscreen voice probe (isolated diagnostics, removable)
+  OFFSCREEN_PROBE_START:  "OFFSCREEN_PROBE_START",
+  OFFSCREEN_PROBE_STOP:   "OFFSCREEN_PROBE_STOP",
+  OFFSCREEN_PROBE_CLOSE:  "OFFSCREEN_PROBE_CLOSE",
+  OFFSCREEN_PROBE_STATUS: "OFFSCREEN_PROBE_STATUS",
+  OFFSCREEN_PROBE_REPORT: "OFFSCREEN_PROBE_REPORT",
 };

@@ -18,18 +18,32 @@ if (!window.__handsfree_content_initialized) {
   let currentSettings = getDefaults();
   let dirtyDuringLoad = false;
   let lastAppliedRev = 0;
+  // Set once controllers are constructed below. The message listener is
+  // registered first so GET_STATUS answers truthfully while heavy
+  // initialization (e.g. MediaPipe loading) is still in flight.
+  let initialized = false;
 
+  // Controller holders. Assigned during initialization below; the early
+  // listener never touches them until `initialized` is true.
+  let cursor = null;
+  let voiceController = null;
+  let dwellController = null;
+  let targetManager = null;
+
+  chrome.runtime.onMessage.addListener(handleMessage);
+
+  // === Controller construction (listener above already answers) ===
   // === WS-1: Head-Tracking Virtual Cursor ===
-  const cursor = new CursorController();
+  cursor = new CursorController();
   window.__handsfree_cursor = cursor;
 
   // === WS-2: Voice Controller ===
-  const voiceController = new VoiceController();
+  voiceController = new VoiceController();
   window.__handsfree_voice = voiceController;
 
   // === WS-3: Dwell Activation & Target Management ===
-  const dwellController = new DwellController();
-  const targetManager = new TargetManager();
+  dwellController = new DwellController();
+  targetManager = new TargetManager();
 
   window.__handsfree_dwell = dwellController;
   window.__handsfree_targets = targetManager;
@@ -52,7 +66,40 @@ if (!window.__handsfree_content_initialized) {
     }
   }
 
-  // Load initial settings
+  // Load initial settings, then auto-activate from persisted preferences so
+  // supported pages work without opening the popup. Runs once per page
+  // context (guarded by __handsfree_content_initialized above).
+  function autoStart(settings) {
+    if (settings.trackingEnabled && !cursor.isTracking) {
+      cursor.start().then(() => {
+        try {
+          dwellController.start();
+        } catch (err) {
+          console.warn("[Handsfree] Dwell auto-start failed:", err);
+        }
+      }).catch((err) => {
+        console.warn("[Handsfree] Tracking auto-start unavailable:", err && err.message ? err.message : err);
+      });
+    }
+    if (settings.voiceEnabled && !voiceController.enabled) {
+      // Voice ownership is exclusive per active tab: a background tab must
+      // not grab the recognition session at load; it is armed later via
+      // VOICE_RESUME when the tab becomes active.
+      const pageVisible = typeof document === "undefined"
+        || typeof document.visibilityState === "undefined"
+        || document.visibilityState === "visible";
+      if (!pageVisible) {
+        console.debug("[Handsfree] Skipping voice auto-start in background tab.");
+      } else {
+        try {
+          voiceController.start();
+        } catch (err) {
+          console.warn("[Handsfree] Voice auto-start unavailable:", err && err.message ? err.message : err);
+        }
+      }
+    }
+  }
+
   loadSettings()
     .then((s) => {
       if (!dirtyDuringLoad) {
@@ -60,8 +107,11 @@ if (!window.__handsfree_content_initialized) {
         currentSettings = { ...getDefaults(), ...clean };
         applySettingsToControllers(currentSettings);
       }
+      autoStart(currentSettings);
     })
-    .catch(() => {});
+    .catch(() => {
+      autoStart(currentSettings);
+    });
 
   // Start dwell tracking loop synced with virtual cursor
   dwellController.start();
@@ -102,13 +152,39 @@ if (!window.__handsfree_content_initialized) {
   });
 
   /**
-   * Unified Message Listener for commands from extension popup, background worker, and voice
+   * Unified Message Listener for commands from extension popup, background worker, and voice.
+   * Hoisted function declaration: referenced by the early addListener call at
+   * the top of this block, defined here to keep all handling in one place.
    */
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  function handleMessage(message, sender, sendResponse) {
     console.log("[Handsfree] Received message:", message?.type);
 
     if (!message || typeof message.type !== "string") {
       sendResponse({ ok: false, error: "INVALID_MESSAGE" });
+      return false;
+    }
+
+    if (!initialized) {
+      // Controllers not ready yet: report initializing truthfully instead of
+      // staying silent or claiming readiness.
+      if (message.type === MSG.GET_STATUS) {
+        sendResponse({
+          ok: true,
+          initializing: true,
+          tracking: false,
+          paused: false,
+          voice: false,
+          listening: false,
+          yielded: false,
+          fps: null,
+          calibrated: false,
+          settings: { ...currentSettings },
+          rev: lastAppliedRev,
+          controllersAvailable: false,
+        });
+        return false;
+      }
+      sendResponse({ ok: false, error: "NOT_INITIALIZED" });
       return false;
     }
 
@@ -162,6 +238,16 @@ if (!window.__handsfree_content_initialized) {
         sendResponse({ ok: true, status: "voice_stopped" });
         break;
 
+      case MSG.VOICE_YIELD:
+        voiceController.release();
+        sendResponse({ ok: true, status: "voice_yielded" });
+        break;
+
+      case MSG.VOICE_RESUME:
+        voiceController.activate();
+        sendResponse({ ok: true, status: "voice_resumed", listening: voiceController.listening });
+        break;
+
       case MSG.START_DICTATION:
         voiceController.setMode("dictation");
         sendResponse({ ok: true, status: "dictation_started" });
@@ -179,6 +265,8 @@ if (!window.__handsfree_content_initialized) {
           tracking: cursor.isTracking,
           paused: cursor.isPaused,
           voice: voiceController.enabled,
+          listening: voiceController.listening,
+          yielded: voiceController.yielded,
           fps: 60,
           calibrated: true,
           settings: { ...currentSettings },
@@ -238,5 +326,7 @@ if (!window.__handsfree_content_initialized) {
     }
 
     return true;
-  });
+  }
+
+  initialized = true;
 }
