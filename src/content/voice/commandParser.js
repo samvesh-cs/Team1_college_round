@@ -63,10 +63,39 @@ export function parseCommand(rawTranscript) {
   normalized = normalized.replace(/^search([a-z])/i, "search $1");
   normalized = normalized.replace(/^click([0-9])/i, "click $1");
 
-  // 1. Direct Target click by number: "click 4", "target 2", "press 7", "number 5", "#3"
-  const clickNumberMatch = normalized.match(/^(?:click|target|press|number|choose)?\s*#?\s*(\d+)$/);
-  if (clickNumberMatch) {
-    return { type: "CLICK_TARGET", payload: parseInt(clickNumberMatch[1], 10), raw: rawTranscript };
+const WORD_TO_NUMBER = {
+  zero: 0,
+  one: 1, won: 1,
+  two: 2, to: 2, too: 2,
+  three: 3, tree: 3,
+  four: 4, for: 4, fore: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8, ate: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
+  fifteen: 15,
+  sixteen: 16,
+  seventeen: 17,
+  eighteen: 18,
+  nineteen: 19,
+  twenty: 20,
+};
+
+  // 1. Direct Target click by digit or number word: "4", "four", "for", "click 4", "click four", "target 2", "select 3", "#3"
+  const clickDigitMatch = normalized.match(/^(?:click|target|press|number|choose|select)?\s*#?\s*(\d+)$/);
+  if (clickDigitMatch) {
+    return { type: "CLICK_TARGET", payload: parseInt(clickDigitMatch[1], 10), raw: rawTranscript };
+  }
+
+  const wordNumberMatch = normalized.match(/^(?:click|target|press|number|choose|select)?\s*#?\s*([a-z]+)$/);
+  if (wordNumberMatch && WORD_TO_NUMBER[wordNumberMatch[1]] !== undefined) {
+    return { type: "CLICK_TARGET", payload: WORD_TO_NUMBER[wordNumberMatch[1]], raw: rawTranscript };
   }
 
   // 2. Direct Search / Google command: "search [query]", "google [query]", "find [query]"

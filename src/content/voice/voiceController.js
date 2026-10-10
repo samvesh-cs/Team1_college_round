@@ -129,10 +129,24 @@ export class VoiceController {
         this.recognition.start();
       } catch (e) {}
     }
+
+    // Periodically recycle cloud speech connection to prevent audio buffer latency bloat
+    if (this._sessionRefreshTimer) clearInterval(this._sessionRefreshTimer);
+    this._sessionRefreshTimer = setInterval(() => {
+      if (this.enabled && Date.now() - this.lastFastCommandTime > 5000) {
+        try {
+          this.recognition && this.recognition.stop();
+        } catch (e) {}
+      }
+    }, 35000);
   }
 
   stop() {
     this.enabled = false;
+    if (this._sessionRefreshTimer) {
+      clearInterval(this._sessionRefreshTimer);
+      this._sessionRefreshTimer = null;
+    }
     if (this.recognition) {
       try {
         this.recognition.stop();
@@ -153,7 +167,7 @@ export class VoiceController {
   }
 
   /* ----------------------------------------------------
-     FAST-PATH EXECUTION ON INTERIM RESULTS (< 150ms)
+     FAST-PATH EXECUTION ON INTERIM RESULTS (< 100ms)
   ---------------------------------------------------- */
   _handleInterimTranscript(interimText) {
     if (this.mode !== "command") return;
@@ -164,16 +178,26 @@ export class VoiceController {
     const command = parseCommand(trimmed);
     const fastEligible = [
       "SCROLL_DOWN", "SCROLL_UP", "GO_TOP", "GO_BOTTOM",
-      "GO_BACK", "GO_FORWARD", "CLICK", "DOUBLE_CLICK"
+      "GO_BACK", "GO_FORWARD", "CLICK", "DOUBLE_CLICK", "CLICK_TARGET"
     ];
 
     const now = Date.now();
     if (fastEligible.includes(command.type)) {
-      // Cooldown check (prevent repeated scroll on single breath)
-      if (now - this.lastFastCommandTime > 750 || this.lastFastCommand !== command.type) {
-        this.lastFastCommand = command.type;
-        this.lastFastCommandTime = now;
-        this._executeCommand(command, trimmed, true);
+      if (command.type === "CLICK_TARGET") {
+        // Fast-path click numbered target on first breath
+        if (now - this.lastFastCommandTime > 600 || this.lastFastTargetPayload !== command.payload) {
+          this.lastFastCommand = command.type;
+          this.lastFastTargetPayload = command.payload;
+          this.lastFastCommandTime = now;
+          this._executeCommand(command, trimmed, true);
+        }
+      } else {
+        // Cooldown check (prevent repeated scroll on single breath)
+        if (now - this.lastFastCommandTime > 750 || this.lastFastCommand !== command.type) {
+          this.lastFastCommand = command.type;
+          this.lastFastCommandTime = now;
+          this._executeCommand(command, trimmed, true);
+        }
       }
     }
   }
@@ -191,10 +215,15 @@ export class VoiceController {
     if (this.mode === "command") {
       const command = parseCommand(trimmed);
 
-      // If already executed by fast-path within 1 second, avoid re-executing
+      // If already executed by fast-path within 1.2 seconds, avoid re-executing
       const now = Date.now();
-      if (this.lastFastCommand === command.type && now - this.lastFastCommandTime < 1000) {
+      if (
+        (this.lastFastCommand === command.type ||
+          (command.type === "CLICK_TARGET" && this.lastFastTargetPayload === command.payload)) &&
+        now - this.lastFastCommandTime < 1200
+      ) {
         this.lastFastCommand = null;
+        this.lastFastTargetPayload = null;
         return;
       }
 

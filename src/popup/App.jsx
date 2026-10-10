@@ -58,9 +58,18 @@ export default function App() {
   const [sizePreset, setSizePreset] = useState('compact'); // 'compact' (390px) | 'medium' (560px) | 'wide' (740px)
   const [customWidth, setCustomWidth] = useState(null);
   const [customHeight, setCustomHeight] = useState(null);
+  const [activeTabUrl, setActiveTabUrl] = useState('');
 
   // 1. Initial URL Param Parsing & Storage Synchronization on Mount
   useEffect(() => {
+    // Detect active tab URL to notify if on restricted internal page (chrome://newtab)
+    if (typeof chrome !== 'undefined' && chrome.tabs?.query) {
+      chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+        if (tabs?.[0]?.url) {
+          setActiveTabUrl(tabs[0].url);
+        }
+      });
+    }
     // Check URL search parameters (e.g., ?mode=tab&tab=calibration)
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -426,6 +435,32 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {/* Chrome Security Sandbox Notice for internal pages (chrome://newtab, etc.) */}
+      {(activeTabUrl.startsWith('chrome://') || activeTabUrl.startsWith('edge://') || activeTabUrl.startsWith('about:')) && (
+        <div className="mx-3.5 mt-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2 shrink-0 z-20 shadow-xs">
+          <span className="text-amber-500 font-bold text-sm shrink-0">⚠️</span>
+          <div className="flex-1">
+            <p className="font-semibold text-[11px] leading-tight">Chrome Security Notice</p>
+            <p className="text-[10px] text-amber-700 mt-0.5 leading-snug">
+              Chrome restricts extensions on internal pages (<code className="font-mono bg-amber-100 px-1 py-0.2 rounded text-[9px]">{activeTabUrl || 'chrome://newtab'}</code>).
+            </p>
+            <button
+              onClick={() => {
+                if (typeof chrome !== 'undefined' && chrome.tabs?.update) {
+                  chrome.tabs.update({ url: 'https://www.google.com' });
+                } else {
+                  window.location.href = 'https://www.google.com';
+                }
+              }}
+              className="mt-1.5 px-2.5 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-semibold transition-colors shadow-xs"
+              type="button"
+            >
+              Open google.com &rarr;
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ================= MINIMIZED COMPACT VIEW ================= */}
       {windowMode === 'minimized' ? (
