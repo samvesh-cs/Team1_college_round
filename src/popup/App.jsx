@@ -23,10 +23,31 @@ export default function App() {
   const [typingEnabled, setTypingEnabled] = useState(false);
   const [intentLockEnabled, setIntentLockEnabled] = useState(true);
 
+  // Calibration state
+  const [calibrationStep, setCalibrationStep] = useState(3);
+  const [dwellTime, setDwellTime] = useState(800);
+  const [smoothingFactor, setSmoothingFactor] = useState(0.85);
+
+  // Simulated telemetry
+  const [fps, setFps] = useState(60.0);
+  const [latency, setLatency] = useState(12);
+
   // Window Resizability state
   const [windowSize, setWindowSize] = useState('compact'); // 'compact' (390px) | 'medium' (540px) | 'wide' (720px)
   const [customWidth, setCustomWidth] = useState(null);
   const [customHeight, setCustomHeight] = useState(null);
+
+  // Synchronize Chrome extension popup window dimensions
+  useEffect(() => {
+    const w = customWidth || (windowSize === 'medium' ? 540 : windowSize === 'wide' ? 720 : 390);
+    const h = customHeight || 580;
+    try {
+      document.documentElement.style.width = `${w}px`;
+      document.body.style.width = `${w}px`;
+      document.documentElement.style.height = `${h}px`;
+      document.body.style.height = `${h}px`;
+    } catch (e) {}
+  }, [windowSize, customWidth, customHeight]);
 
   const openInNewWindow = () => {
     try {

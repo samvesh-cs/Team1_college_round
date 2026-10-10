@@ -8,27 +8,34 @@ The project is designed as a **Manifest V3 Chrome extension** with a **React + V
 
 ---
 > **🤖 AI Context (Current Project Status — Updated 2026-10-10):**
-> Phase 0 (Extension Foundation) and Popup UI Polish are **complete**.
+> Phase 0 (Extension Foundation), Popup UI Polish, and **Workstream 2 (Voice Commands & Voice Agent — Jay)** are **complete**.
 >
 > **What has been built:**
 > - Vite 8.3.4 + React 19 + `@crxjs/vite-plugin` v3 scaffold.
-> - **Tailwind CSS v4** with `@tailwindcss/vite` plugin (no `postcss.config.js` or `tailwind.config.js` — those are deprecated and must NOT be re-added).
-> - Polished tabbed popup UI (`Controls`, `Calibration`, `Voice Ref`) in [`src/popup/App.jsx`](src/popup/App.jsx).
-> - Custom design system via `@theme` block in [`src/popup/styles.css`](src/popup/styles.css) (brand colors, animations, fonts).
-> - Shared message protocol in [`src/shared/messages.js`](src/shared/messages.js) — all inter-script communication uses the `MSG` constants.
-> - Background worker (`src/background/background.js`) relays popup ↔ content-script messages.
-> - Content script (`src/content/content.js`) is a skeleton listener.
-> - Extension loads, popup renders with full CSS styling, messaging works end-to-end.
+> - **Tailwind CSS v4** with `@tailwindcss/vite` plugin (no legacy PostCSS config).
+> - **Full Voice Recognition Engine** (`src/content/voice/voiceController.js` & `commandParser.js`):
+>   - Web Speech API continuous listening with auto-restart on silence.
+>   - Normalized command parser with punctuation stripping and conversational AI fallback.
+>   - Commands: `"scroll down/up"`, `"top/bottom"`, `"back/forward"`, `"click"`, `"double click"`, `"press enter"`, `"tab"`, `"escape"`, `"type [phrase]"`, `"reload"`.
+>   - Synthetic click dispatch with live mouse cursor fallback so clicks succeed even when head tracking is inactive.
+>   - Interactive numbered targets badge overlay (`src/content/voice/targetManager.js`) for `"show targets"` and `"click [number]"`.
+> - **Holographic Sleep Listening Orb Overlay** (`src/content/voice/aiVoiceAgent.js` & `src/content/styles/ai-agent.css`):
+>   - Luminous multi-layer rotating neon corona (electric blue, violet, magenta, and cyan/turquoise).
+>   - Dashed/dotted rotating corona track, dark 3D glass spherical core, and turquoise status pip.
+>   - Listens in sleep mode, flashes command confirmation badges, and expands on click or `"wake up"`.
+> - **Floating AI Voice Agent Chat Window**:
+>   - Dark glassmorphic window with conversation history, user bubbles in turquoise, AI agent responses, and timestamps.
+>   - Bottom dock bar with live soundwave equalizer bars, text input, turquoise mic voice button, and send button.
+> - **Popup Resizability & Turquoise Theme**:
+>   - Sleek modern vector SVG microphone in turquoise (`#2dd4bf` / `#0d9488`).
+>   - 3-mode popup resizer: corner drag-resize handle, preset width switcher (390px / 540px / 720px), and pop-out to standalone resizable tab/window.
 >
-> **What is NOT yet implemented (all core features are stubs):**
-> - Head tracking / MediaPipe face landmark detection.
-> - Voice command recognition / SpeechRecognition API.
-> - Dwell activation / target management.
-> - Voice typing / dictation mode.
-> - Calibration logic (UI exists, but no actual webcam calibration).
-> - Settings persistence (`chrome.storage.sync`).
+> **What is remaining for other teammates (Workstreams 1, 3, 4):**
+> - WS-1 (Head Tracking / MediaPipe face mesh virtual cursor).
+> - WS-3 (Advanced Dwell Activation HUD timer integration).
+> - WS-4 (Calibration Studio logic & `chrome.storage.sync` persistence).
 >
-> **Next up:** See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for the 4-workstream parallel plan.
+> **Next up:** See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for teammate synchronization.
 
 ---
 
