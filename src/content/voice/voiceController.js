@@ -17,6 +17,8 @@ export class VoiceController {
     this.overlay = new VoiceOverlay();
     this.targetManager = new TargetManager();
     this.isSpeaking = false;
+    this.lastSpokenText = "";
+    this.lastSpokenTime = 0;
     this.aiAgent = new AiVoiceAgent({
       onCommandSubmit: (text) => this.handleExternalInput(text),
       onVoiceToggle: (isListening) => {
@@ -26,8 +28,23 @@ export class VoiceController {
           this.stop();
         }
       },
-      onSpeakingChange: (isSpeaking) => {
+      onSpeakingChange: (isSpeaking, spokenText) => {
         this.isSpeaking = isSpeaking;
+        if (isSpeaking) {
+          this.lastSpokenText = spokenText || "";
+          this.lastSpokenTime = Date.now();
+          // IMMEDIATELY ABORT STT while TTS is talking to eliminate speaker pickup!
+          try {
+            if (this.recognition) this.recognition.abort();
+          } catch (e) {}
+        } else {
+          // TTS finished, wait room acoustic margin and restart clean
+          setTimeout(() => {
+            if (this.enabled && !this.isSpeaking) {
+              this._safeRestart();
+            }
+          }, 100);
+        }
       }
     });
 
@@ -99,6 +116,10 @@ export class VoiceController {
 
     this.recognition.onend = () => {
       this._isAborting = false;
+      // CRITICAL: DO NOT RESTART recognition while TTS is actively speaking!
+      if (this.isSpeaking) {
+        return;
+      }
       if (this.enabled) {
         // Immediately invoke recognition.start() inside onend handler to wipe buffer latency
         try {
@@ -243,9 +264,19 @@ export class VoiceController {
      WIPES TRAILING AUDIO BUFFER ON INSTANT COMMAND MATCH
   ---------------------------------------------------- */
   _processTranscript(transcript, isInterim = false) {
-    if (this._isAborting) return false;
+    if (this._isAborting || this.isSpeaking) return false;
     const trimmed = transcript.trim();
     if (!trimmed) return false;
+
+    // Layer 3: Discard any residual audio matching the recently spoken TTS response
+    if (this.lastSpokenText && Date.now() - this.lastSpokenTime < 2800) {
+      const lowerTrimmed = trimmed.toLowerCase();
+      const lowerSpoken = this.lastSpokenText.toLowerCase();
+      if (lowerTrimmed.includes(lowerSpoken) || lowerSpoken.includes(lowerTrimmed)) {
+        console.log("[Handsfree] Blocked TTS acoustic echo:", trimmed);
+        return false;
+      }
+    }
 
     // 1. Dictation Mode
     if (this.mode === "dictation") {
@@ -253,13 +284,13 @@ export class VoiceController {
       if (command.type === "STOP_DICTATION") {
         this.setMode("command");
         this.overlay.flashCommand("stop dictation");
-        this.aiAgent.addAgentMessage("Dictation mode stopped. Switched back to command mode.", "stop dictation");
+        this.aiAgent.addAgentMessage("Dictation mode stopped. Switched back to command mode.", "stop dictation", "Command mode");
         this._abortAndFlush();
         return true;
       }
       if (!isInterim) {
         this._insertDictation(trimmed);
-        this.aiAgent.addAgentMessage(`Dictated: "${trimmed}"`, "dictate");
+        this.aiAgent.addAgentMessage(`Dictated: "${trimmed}"`, "dictate", "Done");
         this._abortAndFlush();
       }
       return false;
@@ -294,7 +325,7 @@ export class VoiceController {
       "PAUSE", "RESUME", "HELP", "START_DICTATION"
     ];
 
-    const isInstant = instantCommands.includes(command.type);
+    const isInstant = instantCommands.includes(command.type) || (command.type === "SEARCH_PAGE" && !command.payload);
 
     if (isInterim && !isInstant) {
       // Multi-word commands (such as "search [query]" or "type [text]" or bare "click") wait for the full sentence
@@ -333,25 +364,25 @@ export class VoiceController {
       case "SCROLL_DOWN":
         window.scrollBy({ top: scrollStep, behavior: "smooth" });
         this.overlay.flashCommand("scroll down");
-        this.aiAgent.addAgentMessage(`Scrolled down ${scrollStep}px`, "scroll down", "Scrolled down");
+        this.aiAgent.addAgentMessage(`Scrolled down ${scrollStep}px`, "scroll down", "Moving down");
         break;
 
       case "SCROLL_UP":
         window.scrollBy({ top: -scrollStep, behavior: "smooth" });
         this.overlay.flashCommand("scroll up");
-        this.aiAgent.addAgentMessage(`Scrolled up ${scrollStep}px`, "scroll up", "Scrolled up");
+        this.aiAgent.addAgentMessage(`Scrolled up ${scrollStep}px`, "scroll up", "Moving up");
         break;
 
       case "GO_TOP":
         window.scrollTo({ top: 0, behavior: "smooth" });
         this.overlay.flashCommand("top");
-        this.aiAgent.addAgentMessage("Scrolled to top of page", "go to top", "Top of page");
+        this.aiAgent.addAgentMessage("Scrolled to top of page", "go to top", "At the top");
         break;
 
       case "GO_BOTTOM":
         window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
         this.overlay.flashCommand("bottom");
-        this.aiAgent.addAgentMessage("Scrolled to bottom of page", "go to bottom", "Bottom of page");
+        this.aiAgent.addAgentMessage("Scrolled to bottom of page", "go to bottom", "At the bottom");
         break;
 
       case "GO_BACK":
@@ -368,7 +399,7 @@ export class VoiceController {
 
       case "RELOAD":
         this.overlay.flashCommand("reload");
-        this.aiAgent.addAgentMessage("Reloading page...", "reload", "Reloading page");
+        this.aiAgent.addAgentMessage("Reloading page...", "reload", "Reloading");
         setTimeout(() => window.location.reload(), 200);
         break;
 
@@ -378,7 +409,7 @@ export class VoiceController {
         this.aiAgent.addAgentMessage(
           clicked ? "Simulated click at cursor target" : "No interactive element found at cursor",
           "click",
-          clicked ? "Clicked" : "No element found"
+          clicked ? "Done" : "No element"
         );
         break;
 
@@ -429,13 +460,13 @@ export class VoiceController {
       case "SHOW_TARGETS":
         const count = this.targetManager.showTargets();
         this.overlay.flashCommand(`targets: ${count}`);
-        this.aiAgent.addAgentMessage(`Generated ${count} numbered click targets. Say 'click [number]' to select.`, "show targets", "Targets visible");
+        this.aiAgent.addAgentMessage(`Generated ${count} numbered click targets. Say a number to click.`, "show targets", "Badges visible");
         break;
 
       case "HIDE_TARGETS":
         this.targetManager.hideTargets();
         this.overlay.flashCommand("targets hidden");
-        this.aiAgent.addAgentMessage("Numbered target badges hidden.", "hide targets", "Targets hidden");
+        this.aiAgent.addAgentMessage("Numbered target badges hidden.", "hide targets", "Badges hidden");
         break;
 
       case "CLICK_TARGET":
@@ -445,7 +476,7 @@ export class VoiceController {
         this.aiAgent.addAgentMessage(
           success ? `Clicked numbered target #${targetNum}` : `Target #${targetNum} not found. Say 'show targets' to re-index.`,
           `click ${targetNum}`,
-          success ? `Target ${targetNum} clicked` : `Target ${targetNum} not found`
+          success ? `Selected ${targetNum}` : `Target ${targetNum} not found`
         );
         break;
 
@@ -453,25 +484,25 @@ export class VoiceController {
       case "WAKE_UP":
         this.aiAgent.toBar();
         this.overlay.flashCommand("bar opened");
-        this.aiAgent.addAgentMessage("Handsfree AI Agent is awake and listening.", "wake up", "Handsfree is awake");
+        this.aiAgent.addAgentMessage("Handsfree AI Agent is awake and listening.", "wake up", "I am awake");
         break;
 
       case "EXPAND_MORE":
         this.aiAgent.toChat();
         this.overlay.flashCommand("chat expanded");
-        this.aiAgent.addAgentMessage("Expanded full chat history window.", "expand more", "Chat opened");
+        this.aiAgent.addAgentMessage("Expanded full chat history window.", "expand more", "Window opened");
         break;
 
       case "COLLAPSE_CHAT":
         this.aiAgent.toBar();
         this.overlay.flashCommand("chat collapsed");
-        this.aiAgent.addAgentMessage("Collapsed back to slim dock bar.", "collapse chat", "Docked to bar");
+        this.aiAgent.addAgentMessage("Collapsed back to slim dock bar.", "collapse chat", "Window docked");
         break;
 
       case "SLEEP":
         this.aiAgent.toOrb();
         this.overlay.flashCommand("sleep mode");
-        this.aiAgent.addAgentMessage("Handsfree entered sleep mode. Say 'wake up' to activate.", "sleep", "Going to sleep");
+        this.aiAgent.addAgentMessage("Handsfree entered sleep mode. Say 'wake up' to activate.", "sleep", "Goodnight");
         break;
 
       case "PAUSE":
@@ -521,47 +552,67 @@ export class VoiceController {
   ---------------------------------------------------- */
   _findSearchInput() {
     const selectors = [
-      'textarea[name="q"]', // Google Search bar!
+      'textarea[name="q"]', // Google Search bar
       'input[name="q"]',    // Google, Bing, DuckDuckGo
       '#searchInput',       // Wikipedia search
       'input[type="search"]',
-      'input[name="search"]',
+      'input[name*="search" i]',
       'input[id*="search" i]',
       'input[placeholder*="search" i]',
       'textarea[placeholder*="search" i]',
-      '[aria-label*="search" i]',
-      '[role="searchbox"]',
-      '[role="combobox"]',
-      'input[type="text"]',
-      'textarea'
+      '[role="searchbox"]'
     ];
 
     for (const sel of selectors) {
-      const el = document.querySelector(sel);
-      if (el && (el.offsetWidth > 0 || el.offsetHeight > 0)) {
-        return el;
+      const candidates = document.querySelectorAll(sel);
+      for (const el of candidates) {
+        // STRICTLY IGNORE any element belonging to Handsfree!
+        if (
+          el.closest('#handsfree-ai-agent-window') ||
+          el.closest('#handsfree-sleep-orb-container') ||
+          el.id?.startsWith('handsfree')
+        ) {
+          continue;
+        }
+        if (el.offsetWidth > 0 && el.offsetHeight > 0 && !el.disabled) {
+          return el;
+        }
       }
     }
     return null;
   }
 
   _searchPage(query) {
-    if (!query) return;
-
-    const cleanQuery = query.replace(/^(?:search for|search|google|find)\s+/i, "").trim();
+    const cleanQuery = (query || "").replace(/^(?:search for|search|google|find)\s*/i, "").trim();
+    const isGoogle = window.location.hostname.includes("google.");
     const searchInput = this._findSearchInput();
 
-    if (searchInput) {
+    if (!cleanQuery) {
+      // If user just said "search" or "find", focus the search bar
+      if (searchInput) {
+        searchInput.focus();
+        this.overlay.flashCommand("search focused");
+        this.aiAgent.addAgentMessage("Search input focused. Speak or type your search query.", "search", "Search input focused");
+      } else {
+        this.overlay.flashCommand("no search bar", false);
+        this.aiAgent.addAgentMessage("No search input on page. Say 'search [query]' to search Google.", "search", "Say search followed by query");
+      }
+      return;
+    }
+
+    if (searchInput && !isGoogle) {
       searchInput.focus();
       this._setInputValue(searchInput, cleanQuery);
       this._pressEnter(searchInput);
       this.overlay.flashCommand(`search: ${cleanQuery}`);
-      this.aiAgent.addAgentMessage(`Searched for "${cleanQuery}" on page`, "search");
+      this.aiAgent.addAgentMessage(`Searched for "${cleanQuery}" on page`, "search", `Searching for ${cleanQuery}`);
     } else {
-      // If no search input on current page, redirect directly to Google search
+      // Direct navigation to Google Search
       this.overlay.flashCommand(`google: ${cleanQuery}`);
-      this.aiAgent.addAgentMessage(`Searching Google for "${cleanQuery}"...`, "search");
-      window.location.href = `https://www.google.com/search?q=${encodeURIComponent(cleanQuery)}`;
+      this.aiAgent.addAgentMessage(`Searching Google for "${cleanQuery}"...`, "search", `Searching Google for ${cleanQuery}`);
+      setTimeout(() => {
+        window.location.href = `https://www.google.com/search?q=${encodeURIComponent(cleanQuery)}`;
+      }, 350);
     }
   }
 

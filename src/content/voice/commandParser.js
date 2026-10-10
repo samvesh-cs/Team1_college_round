@@ -115,21 +115,21 @@ export function parseCommand(rawTranscript) {
   normalized = normalized.replace(/^click([0-9])/i, "click $1");
 
   // 1. Direct Target click by digit or number word:
-  // e.g. "4", "four", "for", "click 4", "click four", "click on 4", "target 2", "select 3", "#3", "badge 4"
-  const clickDigitMatch = normalized.match(/^(?:click\s+on|click|target|press|number|choose|select|badge|button)?\s*(?:number)?\s*#?\s*(\d+)$/);
+  // e.g. "4", "four", "for", "20", "twenty", "click 4", "click four", "target 20", "open 4", "badge 20", "number 4"
+  const clickDigitMatch = normalized.match(/^(?:click\s+on|click|target|choose|select|press|open|go\s+to|badge|button|number)?\s*(?:target|badge|number)?\s*#?\s*(\d+)$/);
   if (clickDigitMatch) {
     return { type: "CLICK_TARGET", payload: parseInt(clickDigitMatch[1], 10), raw: rawTranscript };
   }
 
-  const wordNumberMatch = normalized.match(/^(?:click\s+on|click|target|press|number|choose|select|badge|button)?\s*(?:number)?\s*#?\s*([a-z\s-]+)$/);
+  const wordNumberMatch = normalized.match(/^(?:click\s+on|click|target|choose|select|press|open|go\s+to|badge|button|number)?\s*(?:target|badge|number)?\s*#?\s*([a-z\s-]+)$/);
   if (wordNumberMatch && WORD_TO_NUMBER[wordNumberMatch[1].trim()] !== undefined) {
     return { type: "CLICK_TARGET", payload: WORD_TO_NUMBER[wordNumberMatch[1].trim()], raw: rawTranscript };
   }
 
-  // 2. Direct Search / Google command: "search [query]", "google [query]", "find [query]"
-  const searchMatch = normalized.match(/^(?:search for|search|google|find)\s+(.+)$/i);
+  // 2. Direct Search / Google command: "search [query]", "google [query]", "find [query]", or bare "search"
+  const searchMatch = normalized.match(/^(?:search\s+for|search|google|find)(?:\s+(.+))?$/i);
   if (searchMatch) {
-    return { type: "SEARCH_PAGE", payload: searchMatch[1].trim(), raw: rawTranscript };
+    return { type: "SEARCH_PAGE", payload: (searchMatch[1] || "").trim(), raw: rawTranscript };
   }
 
   // 3. Direct Type command: "type [phrase]", "write [phrase]", "input [phrase]"

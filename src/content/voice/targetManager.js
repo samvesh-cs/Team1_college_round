@@ -47,6 +47,16 @@ export class TargetManager {
 
       if (!isVisible) continue;
 
+      // Exclude Handsfree UI elements and existing badges
+      if (
+        el.closest('#handsfree-ai-agent-window') ||
+        el.closest('#handsfree-sleep-orb-container') ||
+        el.closest('.handsfree-target-badge') ||
+        el.id?.startsWith('handsfree')
+      ) {
+        continue;
+      }
+
       // Create high-visibility turquoise badge
       const badge = document.createElement('div');
       badge.className = 'handsfree-target-badge';
@@ -102,9 +112,14 @@ export class TargetManager {
   }
 
   clickTarget(number) {
+    // If targets are not currently generated or indexed, auto-index visible elements
+    if (!this.isVisible || this.targetElements.size === 0) {
+      this.showTargets();
+    }
+
     const el = this.targetElements.get(number);
     if (!el) {
-      console.warn(`[Handsfree] Target #${number} not found.`);
+      console.warn(`[Handsfree] Target #${number} not found among ${this.targetElements.size} targets.`);
       return false;
     }
 
@@ -133,8 +148,8 @@ export class TargetManager {
       el.click();
     }
 
-    // Hide badges shortly after click
-    setTimeout(() => this.hideTargets(), 500);
+    // Keep badges visible for 2 seconds so user can see what was clicked
+    setTimeout(() => this.hideTargets(), 2200);
     return true;
   }
 }

@@ -15,12 +15,21 @@ export class AiVoiceAgent {
     this._createAgentWindow();
     this._setupDragging();
 
-    // Default welcome message in agent window
-    this.addAgentMessage(
-      "Handsfree AI Voice Agent is active. Speak navigation commands ('scroll down', 'click', 'search') or ask questions.",
-      "ready",
-      "Handsfree ready"
+    // Default welcome message in agent window (visual only, never speaks on startup)
+    this._addInitialMessage(
+      "Handsfree AI Voice Agent is active. Speak navigation commands ('scroll down', 'click', 'search') or ask questions."
     );
+  }
+
+  _addInitialMessage(text) {
+    const timeStr = this._getCurrentTime();
+    const row = document.createElement("div");
+    row.className = "handsfree-msg-row agent";
+    row.innerHTML = `
+      <div class="handsfree-msg-bubble">${this._escapeHtml(text)}</div>
+      <div class="handsfree-msg-time">${timeStr}</div>
+    `;
+    this.chatBody.appendChild(row);
   }
 
   /* ----------------------------------------------------
@@ -379,24 +388,29 @@ export class AiVoiceAgent {
       if (!clean) return;
 
       const utterance = new SpeechSynthesisUtterance(clean);
-      utterance.rate = 1.08; // Natural, crisp response rate
+      utterance.rate = 1.1; // Crisp, responsive speed
       utterance.pitch = 1.0;
       utterance.volume = 0.9;
 
-      if (this.onSpeakingChange) this.onSpeakingChange(true);
+      if (this.onSpeakingChange) this.onSpeakingChange(true, clean);
 
       utterance.onend = () => {
+        // Wait 350ms for room acoustics and audio buffers to dissipate before resuming STT
         setTimeout(() => {
-          if (this.onSpeakingChange) this.onSpeakingChange(false);
-        }, 150);
+          if (this.onSpeakingChange) this.onSpeakingChange(false, clean);
+        }, 350);
       };
 
       utterance.onerror = () => {
-        if (this.onSpeakingChange) this.onSpeakingChange(false);
+        setTimeout(() => {
+          if (this.onSpeakingChange) this.onSpeakingChange(false, clean);
+        }, 150);
       };
 
       window.speechSynthesis.speak(utterance);
-    } catch (e) {}
+    } catch (e) {
+      if (this.onSpeakingChange) this.onSpeakingChange(false, "");
+    }
   }
 
   showDockReply(text, type = "success") {
