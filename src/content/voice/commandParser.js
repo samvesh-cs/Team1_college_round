@@ -69,12 +69,12 @@ const COMMANDS = [
   // Keyboard & Form Controls
   { phrases: ["press enter", "hit enter", "enter", "submit"], type: "PRESS_ENTER" },
   { phrases: ["press tab", "tab", "next field"], type: "PRESS_TAB" },
-  { phrases: ["escape", "press escape", "cancel"], type: "PRESS_ESCAPE" },
+  { phrases: ["escape", "press escape", "cancel", "exit"], type: "PRESS_ESCAPE" },
   { phrases: ["clear", "clear text", "clear input", "delete all"], type: "CLEAR_INPUT" },
 
   // Dictation & Typing
   { phrases: ["start dictation", "start typing", "begin dictation", "type", "dictate", "start type"], type: "START_DICTATION" },
-  { phrases: ["stop dictation", "stop typing", "end dictation", "cancel typing"], type: "STOP_DICTATION" },
+  { phrases: ["stop dictation", "stop typing", "end dictation", "cancel typing", "done typing", "done", "stop type", "exit typing"], type: "STOP_DICTATION" },
 
   // Targets & Numbers
   { phrases: ["show targets", "show numbers", "show badges", "targets", "numbers"], type: "SHOW_TARGETS" },

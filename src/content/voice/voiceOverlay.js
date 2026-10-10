@@ -22,6 +22,12 @@ export class VoiceOverlay {
     this.textElement.className = "handsfree-voice-text";
     this.textElement.textContent = "Listening…";
     this.element.appendChild(this.textElement);
+
+    // Cyan Ghost Text Live Transcription Element
+    this.ghostElement = document.createElement("span");
+    this.ghostElement.className = "handsfree-ghost-text";
+    this.ghostElement.style.display = "none";
+    this.element.appendChild(this.ghostElement);
     
     this.commandElement = document.createElement("span");
     this.commandElement.className = "handsfree-voice-command";
@@ -84,5 +90,22 @@ export class VoiceOverlay {
     this.commandTimeout = setTimeout(() => {
       this.commandElement.style.display = "none";
     }, 2500);
+  }
+
+  setGhostText(text) {
+    if (!this.ghostElement) return;
+    const clean = (text || "").trim();
+    if (clean) {
+      this.ghostElement.textContent = clean;
+      this.ghostElement.style.display = "inline-flex";
+      this.textElement.style.display = "none";
+      if (this.commandElement) {
+        this.commandElement.style.display = "none";
+      }
+    } else {
+      this.ghostElement.textContent = "";
+      this.ghostElement.style.display = "none";
+      this.textElement.style.display = "inline";
+    }
   }
 }

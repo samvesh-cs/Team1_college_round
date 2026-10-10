@@ -149,12 +149,17 @@ export class VoiceController {
       }
 
       if (interimTranscript && !this._isAborting) {
-        this.aiAgent.setInterimText(interimTranscript.trim());
+        const text = interimTranscript.trim();
+        this.aiAgent.setInterimText(text);
+        this.overlay.setGhostText(text);
+      } else {
+        this.overlay.setGhostText("");
       }
     };
 
     this.recognition.onend = () => {
       this._isAborting = false;
+      this.overlay.setGhostText("");
       // CRITICAL: DO NOT RESTART recognition while TTS is speaking or tab is in background!
       if (this.isSpeaking || this.isTabBackgrounded) {
         return;
@@ -230,6 +235,8 @@ export class VoiceController {
      WIPE AUDIO BUFFER & RESTART FRESH SESSION
   ---------------------------------------------------- */
   _abortAndFlush() {
+    this.overlay.setGhostText("");
+    this.aiAgent.setInterimText("");
     if (!this.enabled || !this.recognition || this.isTabBackgrounded) return;
     try {
       this._isAborting = true;
@@ -411,16 +418,87 @@ export class VoiceController {
     // 1. Dictation Mode
     if (this.mode === "dictation") {
       const command = parseCommand(trimmed);
-      if (command.type === "STOP_DICTATION") {
+
+      // A. Submit search / active input and exit dictation: "enter", "press enter", "search", "submit"
+      if (command.type === "PRESS_ENTER" || (command.type === "SEARCH_PAGE" && !command.payload)) {
+        const activeInput = this._getActiveInput() || this._findSearchInput();
+        if (activeInput) {
+          this._submitActiveInput(activeInput);
+          try { activeInput.blur(); } catch (_) {}
+        } else {
+          this._pressEnter();
+        }
         this.setMode("command");
-        this.overlay.flashCommand("stop dictation");
-        this.aiAgent.addAgentMessage("Dictation mode stopped. Switched back to command mode.", "stop dictation", "Command mode");
+        this.overlay.show("command");
+        this.overlay.flashCommand("Search submitted");
+        this.aiAgent.addAgentMessage("Submitted search. Back in command mode.", "search submitted", null);
         this._abortAndFlush();
         return true;
       }
+
+      // B. Exit dictation / Cancel: "escape", "cancel", "exit", "stop dictation", "stop typing", "done typing", "done"
+      if (command.type === "STOP_DICTATION" || command.type === "PRESS_ESCAPE") {
+        const activeInput = this._getActiveInput() || this._findSearchInput();
+        if (activeInput) {
+          try { activeInput.blur(); } catch (_) {}
+        }
+        this.setMode("command");
+        this.overlay.show("command");
+        this.overlay.flashCommand("Command mode");
+        this.aiAgent.addAgentMessage("Exited typing mode. Back in command mode.", "command mode", null);
+        this._abortAndFlush();
+        return true;
+      }
+
+      // C. Clear input: "clear", "clear text", "delete all"
+      if (command.type === "CLEAR_INPUT") {
+        const activeInput = this._getActiveInput() || this._findSearchInput();
+        if (activeInput) {
+          this._clearActiveInput(activeInput);
+        }
+        this.overlay.flashCommand("Cleared input");
+        this.aiAgent.addAgentMessage("Cleared input field.", "clear", null);
+        this._abortAndFlush();
+        return true;
+      }
+
+      // D. Global control escape commands (scroll, top, bottom, sleep, click target, show targets)
+      const isControlEscape = [
+        "SCROLL_DOWN", "SCROLL_UP", "GO_TOP", "GO_BOTTOM",
+        "GO_BACK", "GO_FORWARD", "RELOAD", "SLEEP", "WAKE_UP",
+        "SHOW_TARGETS", "HIDE_TARGETS", "CLICK_TARGET"
+      ].includes(command.type);
+
+      if (isControlEscape) {
+        const activeInput = this._getActiveInput() || this._findSearchInput();
+        if (activeInput) {
+          try { activeInput.blur(); } catch (_) {}
+        }
+        this.setMode("command");
+        this.overlay.show("command");
+        this._executeCommand(command, trimmed, false);
+        this._abortAndFlush();
+        return true;
+      }
+
+      // E. If user said "start dictation" or "type" while already dictating, ignore command keyword
+      if (command.type === "START_DICTATION") {
+        this.overlay.flashCommand("Dictation active");
+        return true;
+      }
+
+      // F. If user explicitly said "type [words]", strip "type" and insert just the words
+      if (command.type === "TYPE_TEXT" && command.payload) {
+        if (!isInterim) {
+          this._insertDictation(command.payload);
+          this._abortAndFlush();
+        }
+        return true;
+      }
+
+      // G. Actual dictation text
       if (!isInterim) {
         this._insertDictation(trimmed);
-        this.aiAgent.addAgentMessage(`Dictated: "${trimmed}"`, "dictate", "Done");
         this._abortAndFlush();
       }
       return false;
@@ -954,10 +1032,19 @@ export class VoiceController {
 
   _submitActiveInput(input) {
     if (!input) return;
-    const enterDown = new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true });
-    const enterUp = new KeyboardEvent("keyup", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true });
-    input.dispatchEvent(enterDown);
-    input.dispatchEvent(enterUp);
+    const evtOptions = {
+      key: "Enter",
+      code: "Enter",
+      keyCode: 13,
+      which: 13,
+      charCode: 13,
+      bubbles: true,
+      cancelable: true,
+      composed: true
+    };
+    input.dispatchEvent(new KeyboardEvent("keydown", evtOptions));
+    input.dispatchEvent(new KeyboardEvent("keypress", evtOptions));
+    input.dispatchEvent(new KeyboardEvent("keyup", evtOptions));
 
     const form = input.form || input.closest("form");
     if (form) {
@@ -968,6 +1055,11 @@ export class VoiceController {
           form.submit();
         }
       } catch (_) {}
+    } else {
+      const submitBtn = input.parentElement?.querySelector('button[type="submit"], input[type="submit"], [aria-label*="search" i]');
+      if (submitBtn) {
+        try { submitBtn.click(); } catch (_) {}
+      }
     }
     this.overlay.flashCommand("Search / Enter submitted");
   }
