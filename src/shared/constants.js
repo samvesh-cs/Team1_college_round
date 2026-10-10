@@ -7,4 +7,5 @@ export const DEFAULTS = {
   voiceEnabled: true,
   typingEnabled: false,
   intentLockEnabled: true,
+  autoClickEnabled: true,
 };

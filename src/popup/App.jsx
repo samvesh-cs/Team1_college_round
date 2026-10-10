@@ -441,7 +441,14 @@ export default function App() {
                     </svg>
                   </div>
                   <div>
-                    <h3 className="text-xs font-semibold text-slate-900 leading-tight">Voice Typing</h3>
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-xs font-semibold text-slate-900 leading-tight">Voice Typing</h3>
+                      {typingEnabled && (
+                        <span className="text-[9px] px-1 py-0.2 rounded bg-indigo-100 text-indigo-800 font-mono font-semibold">
+                          DICTATE
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[10px] text-slate-500">Dictate into active input fields</p>
                   </div>
                 </div>
@@ -449,6 +456,7 @@ export default function App() {
                   onClick={() => {
                     const next = !settingsRef.current.typingEnabled;
                     applyLocalUpdate({ typingEnabled: next });
+                    send(next ? MSG.START_DICTATION : MSG.STOP_DICTATION);
                   }}
                   aria-checked={typingEnabled}
                   className={`relative inline-flex h-[22px] w-10 p-0.5 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${typingEnabled ? 'bg-[#0f766e]' : 'bg-slate-300'
@@ -463,28 +471,30 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Toggle 4: IntentLock™ Anti-jitter */}
+              {/* Toggle 4: Auto-Click (Dwell) */}
               <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/90 hover:border-slate-300 transition-all shadow-xs">
                 <div className="flex items-center gap-2.5">
                   <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200 shrink-0">
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" strokeLinecap="round" strokeLinejoin="round"></path>
+                      <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" strokeLinecap="round" strokeLinejoin="round"></path>
                     </svg>
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <h3 className="text-xs font-semibold text-slate-900 leading-tight">IntentLock™</h3>
-                      <span className="text-[9px] px-1 py-0.2 rounded bg-amber-100 text-amber-800 font-mono font-semibold">
-                        SMOOTH
+                      <h3 className="text-xs font-semibold text-slate-900 leading-tight">Auto-Click (Dwell)</h3>
+                      <span className={`text-[9px] px-1 py-0.2 rounded font-mono font-semibold ${
+                        intentLockEnabled ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {intentLockEnabled ? 'ON' : 'OFF'}
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-500">Tremor filtering &amp; intent lock</p>
+                    <p className="text-[10px] text-slate-500">Hover over elements to auto-click</p>
                   </div>
                 </div>
                 <button
                   onClick={() => {
                     const next = !settingsRef.current.intentLockEnabled;
-                    applyLocalUpdate({ intentLockEnabled: next });
+                    applyLocalUpdate({ intentLockEnabled: next, autoClickEnabled: next });
                   }}
                   aria-checked={intentLockEnabled}
                   className={`relative inline-flex h-[22px] w-10 p-0.5 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${intentLockEnabled ? 'bg-[#0f766e]' : 'bg-slate-300'

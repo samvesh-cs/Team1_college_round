@@ -7,12 +7,15 @@ export class VoiceController {
     this.recognition = null;
     this.mode = "command"; // "command" or "dictation"
     this.enabled = false;
+    this.typingEnabled = false;
     this.listening = false; // true only while recognition is actually running
     this.yielded = false; // true after yielding the session to another tab
     this.overlay = new VoiceOverlay();
     this.restartTimer = null;
+    window.__handsfree_voice = this;
 
     this._init();
+    this._initFocusTracking();
   }
 
   _init() {
@@ -173,25 +176,175 @@ export class VoiceController {
     }
   }
 
+  _initFocusTracking() {
+    if (typeof document === "undefined") return;
+
+    document.addEventListener("focusin", (e) => {
+      const target = e.target;
+      if (target && this._isInputElement(target)) {
+        if (this.enabled) {
+          this.overlay.show("dictation");
+          this.overlay.flashCommand("Input active — speak to type");
+        }
+      }
+    });
+
+    document.addEventListener("focusout", () => {
+      setTimeout(() => {
+        if (this.enabled && !this._getActiveInput() && !this.typingEnabled) {
+          this.overlay.show("command");
+        }
+      }, 120);
+    });
+  }
+
+  _isInputElement(el) {
+    if (!el || !(el instanceof Element)) return false;
+    if (el.tagName === "TEXTAREA" || el.isContentEditable) return true;
+    if (el.getAttribute("role") === "searchbox" || el.getAttribute("role") === "textbox") return true;
+    if (el.tagName === "INPUT") {
+      const type = (el.type || "").toLowerCase();
+      return !["checkbox", "radio", "submit", "button", "reset", "file", "image", "hidden"].includes(type);
+    }
+    return false;
+  }
+
+  _getActiveInput() {
+    const el = document.activeElement;
+    if (el && this._isInputElement(el)) {
+      return el;
+    }
+    return null;
+  }
+
+  _findInputElement(element) {
+    if (!element || !(element instanceof Element)) return null;
+    if (this._isInputElement(element)) return element;
+    const parent = element.closest?.("input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='submit']), textarea, [contenteditable='true'], [role='searchbox'], [role='textbox']");
+    if (parent) return parent;
+    const child = element.querySelector?.("input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='submit']), textarea, [contenteditable='true']");
+    if (child) return child;
+    return null;
+  }
+
+  _submitActiveInput(input) {
+    if (!input) return;
+    const enterDown = new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true });
+    const enterUp = new KeyboardEvent("keyup", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true });
+    input.dispatchEvent(enterDown);
+    input.dispatchEvent(enterUp);
+
+    const form = input.form || input.closest("form");
+    if (form) {
+      try {
+        if (typeof form.requestSubmit === "function") {
+          form.requestSubmit();
+        } else {
+          form.submit();
+        }
+      } catch (_) {}
+    }
+    this.overlay.flashCommand("Search / Enter submitted");
+  }
+
+  _clearActiveInput(input) {
+    if (!input) return;
+    if (input.tagName === "INPUT" || input.tagName === "TEXTAREA") {
+      input.value = "";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    } else if (input.isContentEditable) {
+      input.innerText = "";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    this.overlay.flashCommand("Cleared input");
+  }
+
   setMode(newMode) {
     this.mode = newMode;
-    this.overlay.show(this.mode);
+    if (this.enabled) {
+      this.overlay.show(this.mode);
+    }
+  }
+
+  setTypingEnabled(enabled) {
+    this.typingEnabled = Boolean(enabled);
+    if (this.typingEnabled) {
+      this.setMode("dictation");
+      this.overlay.flashCommand("Voice typing active");
+    } else {
+      this.setMode("command");
+    }
   }
 
   _handleTranscript(transcript) {
-    if (this.mode === "command") {
-      const command = parseCommand(transcript);
-      this._executeCommand(command);
-    } else if (this.mode === "dictation") {
-      this._insertDictation(transcript);
-      
-      // Allow stopping dictation via voice even while dictating
-      const maybeCommand = parseCommand(transcript);
-      if (maybeCommand.type === "STOP_DICTATION") {
-         this.setMode("command");
-         this.overlay.flashCommand("stop dictation");
+    const raw = transcript.trim();
+    if (!raw) return;
+    const lower = raw.toLowerCase();
+
+    // 1. Explicit typing prefix: "type <text>" (e.g. "type top", "type bottom", "type hello")
+    if (lower.startsWith("type ")) {
+      const textToType = raw.slice(5).trim();
+      if (textToType) {
+        this._insertDictation(textToType);
+        return;
       }
     }
+
+    // 2. Form submission commands: "enter", "press enter", "search", "submit"
+    if (lower === "enter" || lower === "press enter" || lower === "search" || lower === "submit") {
+      const activeInput = this._getActiveInput();
+      if (activeInput) {
+        this._submitActiveInput(activeInput);
+        return;
+      }
+    }
+
+    // 3. Clear commands: "clear", "clear text", "clear input"
+    if (lower === "clear" || lower === "clear text" || lower === "clear input" || lower === "delete all") {
+      const activeInput = this._getActiveInput();
+      if (activeInput) {
+        this._clearActiveInput(activeInput);
+        return;
+      }
+    }
+
+    // 4. Command parsing
+    const maybeCommand = parseCommand(raw);
+
+    // Stop dictation or unfocus
+    if (maybeCommand.type === "STOP_DICTATION" || lower === "escape" || lower === "unfocus") {
+      const activeInput = this._getActiveInput();
+      if (activeInput) activeInput.blur();
+      this.setMode("command");
+      this.typingEnabled = false;
+      this.overlay.flashCommand("stop typing");
+      return;
+    }
+
+    if (maybeCommand.type === "START_DICTATION") {
+      this.setMode("dictation");
+      this.typingEnabled = true;
+      this.overlay.flashCommand("start dictation");
+      return;
+    }
+
+    // 5. Normal voice commands (like "top", "bottom", "scroll down", "scroll up", "back", "forward", "click", "pause", "resume")
+    // When recognized as a valid command, execute it immediately instead of typing it!
+    if (maybeCommand.type !== "UNKNOWN") {
+      this._executeCommand(maybeCommand);
+      return;
+    }
+
+    // 6. Voice typing: if an input field is active OR dictation mode is enabled, type the words!
+    const activeInput = this._getActiveInput();
+    if (activeInput || this.mode === "dictation" || this.typingEnabled) {
+      this._insertDictation(raw);
+      return;
+    }
+
+    // 7. Standard command handler
+    this._executeCommand(maybeCommand);
   }
 
   /**
@@ -317,6 +470,20 @@ export class VoiceController {
         }
         this.overlay.flashCommand("calibrated");
         break;
+      case "PRESS_ENTER": {
+        const activeInput = this._getActiveInput();
+        if (activeInput) {
+          this._submitActiveInput(activeInput);
+        }
+        break;
+      }
+      case "CLEAR_INPUT": {
+        const activeInput = this._getActiveInput();
+        if (activeInput) {
+          this._clearActiveInput(activeInput);
+        }
+        break;
+      }
       // These will be wired up properly in WS-3 and WS-1 later, but we can emit messages or call APIs
       case "PAUSE_CURSOR":
       case "RESUME_CURSOR":
@@ -344,39 +511,91 @@ export class VoiceController {
     if (typeof x === "number" && typeof y === "number") {
       const element = document.elementFromPoint(x, y);
       if (element) {
+        const input = this._findInputElement(element);
         element.click();
+        if (input) {
+          try {
+            input.focus({ preventScroll: true });
+          } catch (_) {
+            try { input.focus(); } catch (e) {}
+          }
+          this.overlay.show("dictation");
+          this.overlay.flashCommand("Search/Input active — speak to type");
+        } else {
+          this.overlay.flashCommand("click");
+        }
       }
     }
   }
 
   _insertDictation(transcript) {
-    const activeEl = document.activeElement;
-    if (!activeEl) return;
-    
-    // Simple support for input and textarea
-    if (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA") {
-      const currentVal = activeEl.value;
-      const space = currentVal.length > 0 && !currentVal.endsWith(" ") ? " " : "";
-      const newValue = currentVal + space + transcript.trim();
-      
-      const setter = Object.getOwnPropertyDescriptor(
-        window.HTMLInputElement.prototype, 'value'
-      )?.set || Object.getOwnPropertyDescriptor(
-        window.HTMLTextAreaElement.prototype, 'value'
-      )?.set;
-      
-      if (setter) {
-        setter.call(activeEl, newValue);
-      } else {
-        activeEl.value = newValue; // Fallback
+    let target = document.activeElement;
+
+    // If activeElement is body or not an editable field, check if cursor is over an input
+    if (!target || target === document.body || target === document.documentElement) {
+      const cursor = window.__handsfree_cursor;
+      const x = cursor?.currentX ?? cursor?.x;
+      const y = cursor?.currentY ?? cursor?.y;
+      if (typeof x === "number" && typeof y === "number") {
+        try {
+          const hovered = document.elementFromPoint(x, y);
+          if (hovered) {
+            const inputCandidate = hovered.closest("input, textarea, [contenteditable='true']");
+            if (inputCandidate) {
+              inputCandidate.focus();
+              target = inputCandidate;
+            }
+          }
+        } catch (_) {}
       }
-      
-      activeEl.dispatchEvent(new Event('input', { bubbles: true }));
-      activeEl.dispatchEvent(new Event('change', { bubbles: true }));
-    } else if (activeEl.isContentEditable) {
-      const space = activeEl.innerText.length > 0 && !activeEl.innerText.endsWith(" ") ? " " : "";
-      activeEl.innerText += space + transcript.trim();
-      activeEl.dispatchEvent(new Event('input', { bubbles: true }));
     }
+
+    if (!target || (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA" && !target.isContentEditable)) {
+      this.overlay.flashCommand("Focus an input to type");
+      return;
+    }
+
+    const trimmed = transcript.trim();
+    if (!trimmed) return;
+    const textToInsert = trimmed + " ";
+
+    let inserted = false;
+    try {
+      inserted = document.execCommand("insertText", false, textToInsert);
+    } catch (_) {
+      inserted = false;
+    }
+
+    if (!inserted) {
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
+        const start = target.selectionStart ?? target.value.length;
+        const end = target.selectionEnd ?? target.value.length;
+        const val = target.value;
+        const newVal = val.slice(0, start) + textToInsert + val.slice(end);
+        
+        const setter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype, "value"
+        )?.set || Object.getOwnPropertyDescriptor(
+          window.HTMLTextAreaElement.prototype, "value"
+        )?.set;
+
+        if (setter) {
+          setter.call(target, newVal);
+        } else {
+          target.value = newVal;
+        }
+
+        try {
+          target.selectionStart = target.selectionEnd = start + textToInsert.length;
+        } catch (_) {}
+        target.dispatchEvent(new Event("input", { bubbles: true }));
+        target.dispatchEvent(new Event("change", { bubbles: true }));
+      } else if (target.isContentEditable) {
+        target.innerText += " " + textToInsert;
+        target.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    }
+
+    this.overlay.flashCommand(`Typed: "${trimmed}"`);
   }
 }

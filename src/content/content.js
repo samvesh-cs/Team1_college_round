@@ -67,11 +67,25 @@ if (!window.__handsfree_content_initialized) {
       if (typeof settings.deadZone === "number" && typeof cursor.setDeadZone === "function") {
         cursor.setDeadZone(settings.deadZone);
       }
-      if (typeof settings.intentLockEnabled === "boolean" && typeof cursor.setIntentLock === "function") {
-        cursor.setIntentLock(settings.intentLockEnabled);
+      const isAutoClick = typeof settings.intentLockEnabled === "boolean"
+        ? settings.intentLockEnabled
+        : (typeof settings.autoClickEnabled === "boolean" ? settings.autoClickEnabled : true);
+
+      if (typeof cursor.setIntentLock === "function") {
+        cursor.setIntentLock(isAutoClick);
+      }
+      if (dwellController) {
+        if (isAutoClick && cursor.isTracking && !cursor.isPaused) {
+          dwellController.start();
+        } else {
+          dwellController.stop();
+        }
       }
       if (typeof settings.dwellDuration === "number" && typeof dwellController.setDwellDuration === "function") {
         dwellController.setDwellDuration(settings.dwellDuration);
+      }
+      if (typeof settings.typingEnabled === "boolean" && typeof voiceController.setTypingEnabled === "function") {
+        voiceController.setTypingEnabled(settings.typingEnabled);
       }
     } catch (err) {
       console.warn("[Handsfree] Error applying settings to controllers:", err);
@@ -82,10 +96,18 @@ if (!window.__handsfree_content_initialized) {
   // supported pages work without opening the popup. Runs once per page
   // context (guarded by __handsfree_content_initialized above).
   function autoStart(settings) {
+    const isAutoClick = typeof settings.intentLockEnabled === "boolean"
+      ? settings.intentLockEnabled
+      : (typeof settings.autoClickEnabled === "boolean" ? settings.autoClickEnabled : true);
+
     if (settings.trackingEnabled && !cursor.isTracking) {
       cursor.start().then(() => {
         try {
-          dwellController.start();
+          if (isAutoClick) {
+            dwellController.start();
+          } else {
+            dwellController.stop();
+          }
         } catch (err) {
           console.warn("[Handsfree] Dwell auto-start failed:", err);
         }
@@ -93,6 +115,11 @@ if (!window.__handsfree_content_initialized) {
         console.warn("[Handsfree] Tracking auto-start unavailable:", err && err.message ? err.message : err);
       });
     }
+
+    if (typeof settings.typingEnabled === "boolean" && typeof voiceController.setTypingEnabled === "function") {
+      voiceController.setTypingEnabled(settings.typingEnabled);
+    }
+
     if (settings.voiceEnabled && !voiceController.enabled) {
       // Voice ownership is exclusive per active tab: a background tab must
       // not grab the recognition session at load; it is armed later via
@@ -125,9 +152,6 @@ if (!window.__handsfree_content_initialized) {
       autoStart(currentSettings);
     });
 
-  // Start dwell tracking loop synced with virtual cursor
-  dwellController.start();
-
   let rafId = null;
   let lastFrameTime = performance.now();
 
@@ -135,8 +159,8 @@ if (!window.__handsfree_content_initialized) {
     const dt = now - lastFrameTime;
     lastFrameTime = now;
 
-    // Check if virtual cursor is actively tracking and not paused
-    if (cursor.isTracking && !cursor.isPaused) {
+    // Check if virtual cursor is actively tracking, not paused, and auto-click (dwell) is enabled
+    if (cursor.isTracking && !cursor.isPaused && dwellController.isEnabled) {
       const x = cursor.currentX;
       const y = cursor.currentY;
       if (typeof x === "number" && typeof y === "number") {
@@ -207,7 +231,14 @@ if (!window.__handsfree_content_initialized) {
         cursor
           .start()
           .then(() => {
-            dwellController.start();
+            const isAutoClick = typeof currentSettings.intentLockEnabled === "boolean"
+              ? currentSettings.intentLockEnabled
+              : (typeof currentSettings.autoClickEnabled === "boolean" ? currentSettings.autoClickEnabled : true);
+            if (isAutoClick) {
+              dwellController.start();
+            } else {
+              dwellController.stop();
+            }
             sendResponse({ ok: true, status: "started" });
           })
           .catch((err) => {
@@ -229,11 +260,19 @@ if (!window.__handsfree_content_initialized) {
         sendResponse({ ok: true, status: "paused" });
         break;
 
-      case MSG.RESUME_CURSOR:
+      case MSG.RESUME_CURSOR: {
         cursor.resume();
-        dwellController.start();
+        const isAutoClick = typeof currentSettings.intentLockEnabled === "boolean"
+          ? currentSettings.intentLockEnabled
+          : (typeof currentSettings.autoClickEnabled === "boolean" ? currentSettings.autoClickEnabled : true);
+        if (isAutoClick) {
+          dwellController.start();
+        } else {
+          dwellController.stop();
+        }
         sendResponse({ ok: true, status: "resumed" });
         break;
+      }
 
       case MSG.CALIBRATE:
         if (message.quick) {
@@ -267,12 +306,12 @@ if (!window.__handsfree_content_initialized) {
         break;
 
       case MSG.START_DICTATION:
-        voiceController.setMode("dictation");
+        voiceController.setTypingEnabled(true);
         sendResponse({ ok: true, status: "dictation_started" });
         break;
 
       case MSG.STOP_DICTATION:
-        voiceController.setMode("command");
+        voiceController.setTypingEnabled(false);
         sendResponse({ ok: true, status: "dictation_stopped" });
         break;
 

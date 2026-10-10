@@ -90,6 +90,7 @@ const BOOLEAN_KEYS = [
   "voiceEnabled",
   "typingEnabled",
   "intentLockEnabled",
+  "autoClickEnabled",
 ];
 
 export function validateSettingsPatch(patch) {

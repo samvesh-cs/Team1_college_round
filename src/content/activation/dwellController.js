@@ -328,6 +328,24 @@ export class DwellController {
           })
         );
       }
+
+      // If clicked element is or contains an input or search field, make it active
+      const input = element.matches?.("input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='submit']), textarea, [contenteditable='true'], [role='searchbox'], [role='textbox']")
+        ? element
+        : element.closest?.("input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='submit']), textarea, [contenteditable='true'], [role='searchbox'], [role='textbox']")
+          || element.querySelector?.("input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='submit']), textarea, [contenteditable='true']");
+
+      if (input && typeof input.focus === "function") {
+        try {
+          input.focus({ preventScroll: true });
+        } catch (_) {
+          try { input.focus(); } catch (e) {}
+        }
+        if (window.__handsfree_voice && window.__handsfree_voice.enabled) {
+          window.__handsfree_voice.overlay.show("dictation");
+          window.__handsfree_voice.overlay.flashCommand("Search/Input active — speak to type");
+        }
+      }
     } catch (err) {
       console.warn("[Handsfree] Dwell activation failed:", err);
     }
