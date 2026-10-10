@@ -7,13 +7,28 @@ The project is designed as a **Manifest V3 Chrome extension** with a **React + V
 > **Prototype scope:** The initial version targets a virtual cursor inside supported webpages. It does not automatically control the operating-system mouse across all applications. Browser and speech-recognition support can vary.
 
 ---
-> **🤖 AI Context (Current Project Status):** 
-> Phase 0 (Extension Foundation) has been fully implemented.
-> - The project has been scaffolded using Vite, React, and `@crxjs/vite-plugin`.
-> - `manifest.json` is configured for Manifest V3.
-> - The React popup, background worker, and content script are wired up with messaging.
-> - The extension builds successfully via `npm run build`.
-> - **Next up:** Phase 1 (Head tracking / MediaPipe integration).
+> **🤖 AI Context (Current Project Status — Updated 2026-10-10):**
+> Phase 0 (Extension Foundation) and Popup UI Polish are **complete**.
+>
+> **What has been built:**
+> - Vite 8.3.4 + React 19 + `@crxjs/vite-plugin` v3 scaffold.
+> - **Tailwind CSS v4** with `@tailwindcss/vite` plugin (no `postcss.config.js` or `tailwind.config.js` — those are deprecated and must NOT be re-added).
+> - Polished tabbed popup UI (`Controls`, `Calibration`, `Voice Ref`) in [`src/popup/App.jsx`](src/popup/App.jsx).
+> - Custom design system via `@theme` block in [`src/popup/styles.css`](src/popup/styles.css) (brand colors, animations, fonts).
+> - Shared message protocol in [`src/shared/messages.js`](src/shared/messages.js) — all inter-script communication uses the `MSG` constants.
+> - Background worker (`src/background/background.js`) relays popup ↔ content-script messages.
+> - Content script (`src/content/content.js`) is a skeleton listener.
+> - Extension loads, popup renders with full CSS styling, messaging works end-to-end.
+>
+> **What is NOT yet implemented (all core features are stubs):**
+> - Head tracking / MediaPipe face landmark detection.
+> - Voice command recognition / SpeechRecognition API.
+> - Dwell activation / target management.
+> - Voice typing / dictation mode.
+> - Calibration logic (UI exists, but no actual webcam calibration).
+> - Settings persistence (`chrome.storage.sync`).
+>
+> **Next up:** See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for the 4-workstream parallel plan.
 
 ---
 
@@ -323,8 +338,10 @@ Chrome extension runtime ---- HTTP/JSON ---- FastAPI API
 |---|---|
 | Chrome Extension Manifest V3 | Declares extension components, permissions, and entry points |
 | JavaScript | Core extension and interaction logic |
-| React | Popup and settings interface |
-| Vite | Frontend development server and build tooling |
+| React 19 | Popup and settings interface |
+| Vite 8.x | Frontend development server and build tooling |
+| Tailwind CSS v4 | Utility-first CSS via `@tailwindcss/vite` plugin (no PostCSS config) |
+| `@crxjs/vite-plugin` v3 | Chrome extension build integration with HMR |
 | MediaPipe Tasks Vision | Face-landmark detection in the browser |
 | `navigator.mediaDevices.getUserMedia()` | Requests webcam access |
 | Web Speech API | Browser speech recognition and optional speech output |
@@ -974,11 +991,14 @@ Avoid committing `.env` files, credentials, dependency folders, build artifacts 
 
 ## Roadmap
 
-### Phase 1 — Extension foundation
+### Phase 1 — Extension foundation ✅
 
 - [x] Valid Manifest V3 extension.
 - [x] React + Vite popup.
 - [x] Background/content messaging.
+- [x] Polished tabbed popup UI (Controls, Calibration, Voice Ref).
+- [x] Tailwind CSS v4 integration (`@tailwindcss/vite`).
+- [x] Shared message protocol (`src/shared/messages.js`).
 - [ ] Virtual cursor overlay on supported webpages.
 
 ### Phase 2 — Head control
@@ -1008,6 +1028,8 @@ Avoid committing `.env` files, credentials, dependency folders, build artifacts 
 - [ ] Broader webpage compatibility.
 - [ ] Optional FastAPI service if justified.
 - [ ] Explore a native companion for system-wide cursor control.
+
+> **For the detailed, parallelized 4-workstream implementation plan, see [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).**
 
 Update the checkboxes only when the corresponding feature has been implemented and tested.
 
