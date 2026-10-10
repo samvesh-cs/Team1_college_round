@@ -57,6 +57,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.type === MSG.STOP_VOICE || message.type === MSG.STOP_TRACKING) {
     console.log("[Handsfree] Deactivating voiceController");
     voiceController.stop();
+  } else if (message.type === "YIELD_MIC") {
+    console.log("[Handsfree] Yielding microphone on backgrounded tab");
+    voiceController.yieldMic();
   }
   // ==========================================
   

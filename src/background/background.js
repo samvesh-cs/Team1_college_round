@@ -91,16 +91,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
+function isRestrictedUrl(url) {
+  if (!url) return true;
+  return (
+    url.startsWith("chrome://") ||
+    url.startsWith("edge://") ||
+    url.startsWith("chrome-extension://") ||
+    url.startsWith("devtools://") ||
+    url.startsWith("view-source:")
+  );
+}
+
 // Auto-restore engine & AI voice agent across page navigation (Google search, back, forward)
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === "complete") {
-    if (
-      tab.url &&
-      (tab.url.startsWith("chrome://") ||
-        tab.url.startsWith("edge://") ||
-        tab.url.startsWith("chrome-extension://") ||
-        tab.url.startsWith("devtools://"))
-    ) {
+    if (isRestrictedUrl(tab?.url)) {
       return;
     }
 
@@ -122,4 +127,60 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       }
     });
   }
+});
+
+// Follow tab focus across all tabs so newly selected tabs immediately activate
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  const tabId = activeInfo.tabId;
+  chrome.storage.local.get(["engineRunning", "voiceEnabled", "agentState"], (res) => {
+    if (res?.engineRunning && res?.voiceEnabled !== false) {
+      // 1. Tell all background tabs to yield mic
+      chrome.tabs.query({}, (tabs) => {
+        for (const t of tabs) {
+          if (t.id && t.id !== tabId && !isRestrictedUrl(t.url)) {
+            chrome.tabs.sendMessage(t.id, { type: "YIELD_MIC" }).catch(() => {});
+          }
+        }
+      });
+
+      // 2. Activate voice agent on newly focused tab
+      chrome.tabs.get(tabId, (tab) => {
+        if (chrome.runtime.lastError || !tab || isRestrictedUrl(tab.url)) return;
+
+        const startMsg = {
+          type: MSG.START_VOICE,
+          agentState: res.agentState || "bar",
+          autoRestored: true,
+          isTabFocus: true,
+        };
+
+        chrome.tabs.sendMessage(tabId, startMsg, () => {
+          if (chrome.runtime.lastError && chrome.scripting) {
+            chrome.scripting
+              .insertCSS({
+                target: { tabId },
+                files: [
+                  "src/content/styles/overlay.css",
+                  "src/content/styles/voice-overlay.css",
+                  "src/content/styles/ai-agent.css",
+                ],
+              })
+              .catch(() => {});
+
+            chrome.scripting
+              .executeScript({
+                target: { tabId },
+                files: ["src/content/content.js"],
+              })
+              .then(() => {
+                setTimeout(() => {
+                  chrome.tabs.sendMessage(tabId, startMsg).catch(() => {});
+                }, 200);
+              })
+              .catch(() => {});
+          }
+        });
+      });
+    }
+  });
 });

@@ -19,6 +19,19 @@ export class VoiceController {
     this.isSpeaking = false;
     this.lastSpokenText = "";
     this.lastSpokenTime = 0;
+    this.isTabBackgrounded = typeof document !== "undefined" ? document.hidden : false;
+
+    // Listen to tab visibility changes to yield microphone to active tab
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          this.yieldMic();
+        } else {
+          this.resumeMic();
+        }
+      });
+    }
+
     this.aiAgent = new AiVoiceAgent({
       onCommandSubmit: (text) => this.handleExternalInput(text),
       onVoiceToggle: (isListening) => {
@@ -116,8 +129,8 @@ export class VoiceController {
 
     this.recognition.onend = () => {
       this._isAborting = false;
-      // CRITICAL: DO NOT RESTART recognition while TTS is actively speaking!
-      if (this.isSpeaking) {
+      // CRITICAL: DO NOT RESTART recognition while TTS is speaking or tab is in background!
+      if (this.isSpeaking || this.isTabBackgrounded) {
         return;
       }
       if (this.enabled) {
@@ -148,10 +161,31 @@ export class VoiceController {
   }
 
   /* ----------------------------------------------------
+     TAB FOCUS MANAGEMENT & MIC ARBITRATION
+  ---------------------------------------------------- */
+  yieldMic() {
+    this.isTabBackgrounded = true;
+    if (this.recognition) {
+      try {
+        this.recognition.abort();
+      } catch (e) {}
+    }
+    this.aiAgent.updateVoiceState(false);
+  }
+
+  resumeMic() {
+    this.isTabBackgrounded = false;
+    if (this.enabled) {
+      this.aiAgent.updateVoiceState(true);
+      this._safeRestart();
+    }
+  }
+
+  /* ----------------------------------------------------
      WIPE AUDIO BUFFER & RESTART FRESH SESSION
   ---------------------------------------------------- */
   _abortAndFlush() {
-    if (!this.enabled || !this.recognition) return;
+    if (!this.enabled || !this.recognition || this.isTabBackgrounded) return;
     try {
       this._isAborting = true;
       // Immediately wipe internal audio buffer so cloud server stops processing trailing syllables
@@ -162,12 +196,12 @@ export class VoiceController {
   }
 
   _safeRestart() {
-    if (!this.enabled) return;
+    if (!this.enabled || this.isTabBackgrounded || this.isSpeaking) return;
     if (this._restartTimer) clearTimeout(this._restartTimer);
 
     const tryStart = (retries = 3, delay = 20) => {
       this._restartTimer = setTimeout(() => {
-        if (!this.enabled) return;
+        if (!this.enabled || this.isTabBackgrounded || this.isSpeaking) return;
         this._isAborting = false;
         try {
           this.recognition.start();
@@ -196,7 +230,7 @@ export class VoiceController {
       } catch (e) {}
     }
     this._initSpeechRecognition();
-    if (this.enabled && this.recognition) {
+    if (this.enabled && this.recognition && !this.isTabBackgrounded && !this.isSpeaking) {
       try {
         this.recognition.start();
       } catch (e) {}
@@ -207,7 +241,6 @@ export class VoiceController {
     this.enabled = true;
     this.mode = "command";
     this.overlay.show(this.mode);
-    this.aiAgent.updateVoiceState(true);
 
     if (targetState === "chat") {
       this.aiAgent.toChat();
@@ -216,6 +249,16 @@ export class VoiceController {
     } else {
       this.aiAgent.toBar();
     }
+
+    // If tab is in background, don't hijack microphone from foreground tab
+    if (typeof document !== "undefined" && document.hidden) {
+      this.isTabBackgrounded = true;
+      this.aiAgent.updateVoiceState(false);
+      return;
+    }
+
+    this.isTabBackgrounded = false;
+    this.aiAgent.updateVoiceState(true);
 
     if (this.recognition) {
       try {
@@ -226,7 +269,7 @@ export class VoiceController {
     // Periodically recycle cloud speech connection to prevent audio buffer latency bloat
     if (this._sessionRefreshTimer) clearInterval(this._sessionRefreshTimer);
     this._sessionRefreshTimer = setInterval(() => {
-      if (this.enabled && Date.now() - this.lastFastCommandTime > 5000) {
+      if (this.enabled && !this.isTabBackgrounded && Date.now() - this.lastFastCommandTime > 5000) {
         try {
           this.recognition && this.recognition.stop();
         } catch (e) {}
