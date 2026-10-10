@@ -26,6 +26,10 @@ export const MSG = {
   HIDE_TARGETS:     "HIDE_TARGETS",
   CLICK_TARGET:     "CLICK_TARGET",
 
+  // Workstream — Performance Evaluation
+  START_EVALUATION:       "START_EVALUATION",
+  STOP_EVALUATION:        "STOP_EVALUATION",
+
   // Stage-0 offscreen voice probe (isolated diagnostics, removable)
   OFFSCREEN_PROBE_START:  "OFFSCREEN_PROBE_START",
   OFFSCREEN_PROBE_STOP:   "OFFSCREEN_PROBE_STOP",

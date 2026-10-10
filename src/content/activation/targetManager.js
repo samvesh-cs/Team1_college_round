@@ -247,15 +247,20 @@ export class TargetManager {
       return false;
     }
 
-    // Ignore Handsfree overlay elements
-    if (
-      element.id?.startsWith("handsfree-") ||
-      element.className?.toString?.().includes("handsfree-") ||
-      element.closest?.(
-        '#handsfree-cursor, #handsfree-dwell, #handsfree-targets-container, [id^="handsfree-"], [class*="handsfree-"]'
-      )
-    ) {
-      return false;
+    // Ignore Handsfree overlay elements (unless they are evaluation targets)
+    const isEvalTarget = element.closest?.('[data-eval-target], .eval-target, #eval-task-canvas');
+    if (!isEvalTarget) {
+      if (
+        element.id?.startsWith("handsfree-cursor") ||
+        element.id?.startsWith("handsfree-dwell") ||
+        element.id?.startsWith("handsfree-calib") ||
+        element.id?.startsWith("handsfree-voice") ||
+        element.closest?.(
+          '#handsfree-cursor, #handsfree-dwell, #handsfree-targets-container, #handsfree-voice-status, #handsfree-calibration-overlay'
+        )
+      ) {
+        return false;
+      }
     }
 
     // Ignore disabled elements or disabled fieldset ancestors

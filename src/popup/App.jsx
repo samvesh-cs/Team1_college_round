@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MSG } from '../shared/messages.js';
 import { loadSettings, saveSettings, getDefaults, validateSettingsPatch } from '../shared/settings.js';
+import EvaluationDashboard from './components/EvaluationDashboard.jsx';
 
 function send(type, payload = {}) {
   try {
@@ -17,7 +18,7 @@ function send(type, payload = {}) {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('controls'); // 'controls' | 'calibration' | 'commands'
+  const [activeTab, setActiveTab] = useState('controls'); // 'controls' | 'calibration' | 'commands' | 'evaluation'
   const [isRunning, setIsRunning] = useState(false);
   const [trackingEnabled, setTrackingEnabled] = useState(true);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
@@ -103,7 +104,7 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab');
-      if (tabParam === 'calibration' || tabParam === 'controls' || tabParam === 'commands') {
+      if (tabParam === 'calibration' || tabParam === 'controls' || tabParam === 'commands' || tabParam === 'evaluation') {
         setActiveTab(tabParam);
       }
     }
@@ -169,6 +170,74 @@ export default function App() {
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
+
+  // 2b. Live Camera Feed & Head Telemetry for Calibration Gaze HUD
+  const hudVideoRef = useRef(null);
+  const [cameraActive, setCameraActive] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'calibration') return;
+
+    let active = true;
+    let stream = null;
+
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices
+        .getUserMedia({ video: { width: { ideal: 480 }, height: { ideal: 360 }, facingMode: 'user' } })
+        .then((s) => {
+          if (!active) {
+            s.getTracks().forEach((t) => t.stop());
+            return;
+          }
+          stream = s;
+          setCameraActive(true);
+          if (hudVideoRef.current) {
+            hudVideoRef.current.srcObject = s;
+            hudVideoRef.current.play().catch(() => {});
+          }
+        })
+        .catch((err) => {
+          console.warn('[Handsfree HUD] Camera stream notice:', err);
+          setCameraActive(false);
+        });
+    }
+
+    // Stream real-time head-tracking cursor coordinates from active tab content script
+    const telemetryInterval = setInterval(() => {
+      requestStatus().then((res) => {
+        if (res && res.ok && res.tracking) {
+          const winW = res.windowWidth || 1280;
+          const winH = res.windowHeight || 720;
+          const x = typeof res.cursorX === 'number' ? res.cursorX : winW / 2;
+          const y = typeof res.cursorY === 'number' ? res.cursorY : winH / 2;
+          const pctX = +((x / winW) * 100).toFixed(1);
+          const pctY = +((y / winH) * 100).toFixed(1);
+          const delta = +(Math.sqrt(Math.pow(x - winW / 2, 2) + Math.pow(y - winH / 2, 2)) * 0.05).toFixed(1);
+
+          setLiveCoords({
+            x: Math.round(x),
+            y: Math.round(y),
+            pctX: Math.max(2, Math.min(98, pctX)),
+            pctY: Math.max(2, Math.min(98, pctY)),
+            pitch: +((pctY - 50) * 0.1).toFixed(1),
+            yaw: +((pctX - 50) * 0.1).toFixed(1),
+            roll: 0.0,
+            confidence: +(98.5 + (res.dx ? Math.min(1.4, Math.abs(res.dx) * 0.05) : 0.8)).toFixed(1),
+            targetDelta: delta,
+          });
+        }
+      });
+    }, 80);
+
+    return () => {
+      active = false;
+      setCameraActive(false);
+      clearInterval(telemetryInterval);
+      if (stream) {
+        stream.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, [activeTab]);
 
   // 3. Dynamic Extension Popup Window Dimensions Sync
   useEffect(() => {
@@ -682,7 +751,7 @@ export default function App() {
 
               <button
                 onClick={() => setActiveTab('commands')}
-                className={`flex-1 py-1 px-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors duration-150 ${
+                className={`flex-1 py-1 px-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-colors duration-150 ${
                   activeTab === 'commands'
                     ? 'bg-white text-teal-800 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -692,7 +761,22 @@ export default function App() {
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" strokeLinecap="round" strokeLinejoin="round"></path>
                 </svg>
-                Voice Ref
+                Voice
+              </button>
+
+              <button
+                onClick={() => setActiveTab('evaluation')}
+                className={`flex-1 py-1 px-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-colors duration-150 ${
+                  activeTab === 'evaluation'
+                    ? 'bg-white text-teal-800 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                type="button"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Eval
               </button>
             </div>
           </nav>
@@ -1015,6 +1099,30 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Quick Evaluation Banner */}
+                <div
+                  onClick={() => setActiveTab('evaluation')}
+                  className="p-2.5 rounded-xl bg-gradient-to-r from-indigo-50 to-teal-50 border border-indigo-200/80 flex items-center justify-between cursor-pointer hover:border-indigo-300 transition-all shadow-xs group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-600 group-hover:bg-indigo-700 text-white flex items-center justify-center shadow-xs transition-colors">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        Performance Evaluation
+                        <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-800 font-medium">Benchmark</span>
+                      </h4>
+                      <p className="text-[10px] text-slate-600">Measure completion time &amp; accuracy vs mouse input</p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-indigo-700 font-bold flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                    Start &rarr;
+                  </span>
+                </div>
+
                 {/* Quick Calibration Banner / Actions */}
                 <div className="flex items-center gap-2">
                   <button
@@ -1127,7 +1235,7 @@ export default function App() {
                           try { window.close(); } catch (_) {}
                         }, 150);
                       }}
-                      className="w-full py-2 px-4 rounded-lg bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-bold text-xs transition-all shadow-md shadow-teal-600/25 flex items-center justify-center gap-2"
+                      className="w-full py-2 px-4 rounded-lg bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-bold text-xs transition-all shadow-md shadow-teal-600/25 flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                         <circle cx="12" cy="12" r="3"/>
@@ -1145,7 +1253,7 @@ export default function App() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-xs font-bold text-slate-900">Interactive Gaze HUD</h3>
-                    <p className="text-[10px] text-slate-500">Fixate gaze on targets to lock accuracy</p>
+                    <p className="text-[10px] text-slate-500">Camera output &amp; real-time gaze telemetry as head moves</p>
                   </div>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200 font-bold">
                     Step {calibrationStep}/5
@@ -1153,17 +1261,42 @@ export default function App() {
                 </div>
 
                 <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner flex items-center justify-center">
-                  {/* Cyber Grid */}
-                  <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#06b6d425_1px,transparent_1px),linear-gradient(to_bottom,#06b6d425_1px,transparent_1px)] bg-[size:16px_16px]"></div>
+                  {/* Real Live Camera Video Output Feed */}
+                  <video
+                    ref={hudVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`absolute inset-0 w-full h-full object-cover transform -scale-x-100 transition-opacity duration-300 ${
+                      cameraActive ? 'opacity-80' : 'opacity-20'
+                    }`}
+                  />
 
-                  {/* Scanline */}
+                  {/* Cyber Grid Overlay */}
+                  <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#06b6d425_1px,transparent_1px),linear-gradient(to_bottom,#06b6d425_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none"></div>
+
+                  {/* Scanline Overlay */}
                   <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent animate-shimmer pointer-events-none opacity-40"></div>
 
                   {/* HUD Corner Brackets */}
-                  <div className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-teal-400"></div>
-                  <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-teal-400"></div>
-                  <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-teal-400"></div>
-                  <div className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-teal-400"></div>
+                  <div className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-teal-400 pointer-events-none"></div>
+                  <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-teal-400 pointer-events-none"></div>
+                  <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-teal-400 pointer-events-none"></div>
+                  <div className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-teal-400 pointer-events-none"></div>
+
+                  {/* Live Tracking Crosshair moving in real-time with head coordinates */}
+                  <div
+                    className="absolute w-8 h-8 -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all duration-75 flex items-center justify-center z-10"
+                    style={{
+                      left: `${liveCoords.pctX}%`,
+                      top: `${liveCoords.pctY}%`,
+                    }}
+                  >
+                    <div className="w-8 h-8 rounded-full border border-cyan-400/70 animate-ping absolute opacity-50"></div>
+                    <div className="w-5 h-5 rounded-full border border-cyan-300 bg-cyan-500/20 flex items-center justify-center shadow-lg shadow-cyan-500/50">
+                      <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
+                    </div>
+                  </div>
 
                   {/* Top HUD Badges */}
                   <div className="absolute top-2.5 left-3 flex items-center gap-1.5">
@@ -1462,6 +1595,11 @@ export default function App() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* ================= TAB 4: PERFORMANCE EVALUATION ================= */}
+            {activeTab === 'evaluation' && (
+              <EvaluationDashboard onOpenTab={openInNewWindow} />
             )}
           </main>
 

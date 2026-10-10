@@ -196,12 +196,19 @@ export class DwellController {
       return null;
     }
 
-    // Never target Handsfree overlay elements
-    if (
-      rawElement.id?.startsWith("handsfree-") ||
-      rawElement.closest?.('#handsfree-cursor, #handsfree-dwell, [id^="handsfree-"], [class*="handsfree-"]')
-    ) {
-      return null;
+    // Never target internal Handsfree overlays (cursor, dwell ring, voice badge, calibration)
+    // Exception: Explicitly allow evaluation targets so virtual cursor can interact with them
+    const isEvalTarget = rawElement.closest?.('[data-eval-target], .eval-target, #eval-task-canvas');
+    if (!isEvalTarget) {
+      if (
+        rawElement.id?.startsWith("handsfree-cursor") ||
+        rawElement.id?.startsWith("handsfree-dwell") ||
+        rawElement.id?.startsWith("handsfree-calib") ||
+        rawElement.id?.startsWith("handsfree-voice") ||
+        rawElement.closest?.('#handsfree-cursor, #handsfree-dwell, #handsfree-voice-overlay, #handsfree-calibration-overlay, [class*="handsfree-cursor"]')
+      ) {
+        return null;
+      }
     }
 
     // Search upwards for an interactive container
