@@ -1,7 +1,10 @@
-// Handsfree AI Voice Agent Window & Holographic Sleep Orb Controller
+// Handsfree AI Voice Agent with 3-State Machine:
+// State 1: 'orb'  - Holographic Sleep Orb (Image 2)
+// State 2: 'bar'  - Slim Floating Pill Dock Bar (Image 4)
+// State 3: 'chat' - Full Expanded Chat History Window (Image 1)
 export class AiVoiceAgent {
   constructor(options = {}) {
-    this.isOpen = false; // Starts in sleep/orb mode
+    this.state = "orb"; // Starts in sleep/orb mode
     this.onCommandSubmit = options.onCommandSubmit || (() => {});
     this.onVoiceToggle = options.onVoiceToggle || (() => {});
     this.isListening = true;
@@ -12,17 +15,17 @@ export class AiVoiceAgent {
 
     // Default welcome message in agent window
     this.addAgentMessage(
-      "Handsfree AI Voice Agent is active. Speak navigation commands ('scroll down', 'click', 'back') or ask questions about this page."
+      "Handsfree AI Voice Agent is active. Speak navigation commands ('scroll down', 'click', 'search') or ask questions."
     );
   }
 
   /* ----------------------------------------------------
-     1. CREATE HOLOGRAPHIC SLEEP ORB (IMAGE 2)
+     1. CREATE HOLOGRAPHIC SLEEP ORB (STATE 1: IMAGE 2)
   ---------------------------------------------------- */
   _createSleepOrb() {
     this.orbContainer = document.createElement("div");
     this.orbContainer.id = "handsfree-sleep-orb-container";
-    this.orbContainer.title = "Handsfree AI • Click to open assistant";
+    this.orbContainer.title = "Handsfree AI • Click or say 'wake up' to open";
 
     this.orbContainer.innerHTML = `
       <div class="handsfree-orb-toast" id="handsfree-orb-toast"></div>
@@ -47,21 +50,22 @@ export class AiVoiceAgent {
     this.orbTrigger = this.orbContainer.querySelector("#handsfree-orb-trigger");
     this.orbToast = this.orbContainer.querySelector("#handsfree-orb-toast");
 
+    // Clicking the orb opens the slim dock bar (State 2)
     this.orbTrigger.addEventListener("click", () => {
-      this.expand();
+      this.toBar();
     });
   }
 
   /* ----------------------------------------------------
-     2. CREATE FLOATING AI VOICE AGENT WINDOW (IMAGE 3)
+     2. CREATE FLOATING AGENT (STATES 2 & 3: IMAGES 4 & 1)
   ---------------------------------------------------- */
   _createAgentWindow() {
     this.windowElement = document.createElement("div");
     this.windowElement.id = "handsfree-ai-agent-window";
-    this.windowElement.className = "hidden"; // Starts collapsed into the orb
+    this.windowElement.className = "hidden mode-bar"; // Default mode
 
     this.windowElement.innerHTML = `
-      <!-- Header -->
+      <!-- Header (Visible in State 3: Chat) -->
       <div class="handsfree-agent-header" id="handsfree-agent-header">
         <div class="handsfree-agent-header-left">
           <span class="handsfree-header-orb-icon"></span>
@@ -77,21 +81,27 @@ export class AiVoiceAgent {
               <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
             </svg>
           </button>
-          <button class="handsfree-header-btn" id="handsfree-btn-minimize" title="Collapse into sleep orb">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12"/>
+          <button class="handsfree-header-btn" id="handsfree-btn-minimize" title="Collapse to dock bar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <button class="handsfree-header-btn" id="handsfree-btn-sleep" title="Collapse to sleep orb">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
         </div>
       </div>
 
-      <!-- Chat History -->
+      <!-- Chat History (Visible in State 3: Chat) -->
       <div class="handsfree-agent-chat-body" id="handsfree-chat-body"></div>
 
-      <!-- Dock Input Bar (Image 3) -->
+      <!-- Dock Input Bar (Visible in States 2 & 3: Image 4 & 1) -->
       <div class="handsfree-agent-dock">
-        <!-- Dock Orb -->
-        <div class="handsfree-dock-orb" id="handsfree-dock-orb" title="Collapse to sleep orb">
+        <!-- Dock Orb (Click to Sleep) -->
+        <div class="handsfree-dock-orb" id="handsfree-dock-orb" title="Collapse to sleep orb (or say 'sleep')">
           <div class="handsfree-dock-orb-ring"></div>
           <div class="handsfree-dock-orb-core"></div>
           <div class="handsfree-dock-orb-pip"></div>
@@ -106,7 +116,7 @@ export class AiVoiceAgent {
           <div class="handsfree-wave-bar"></div>
         </div>
 
-        <!-- Input Field -->
+        <!-- Real-time Speech & Text Input -->
         <input 
           type="text" 
           class="handsfree-dock-input" 
@@ -132,6 +142,13 @@ export class AiVoiceAgent {
             <polygon points="22 2 15 22 11 13 2 9 22 2"/>
           </svg>
         </button>
+
+        <!-- Expand / Collapse Chevron Button (Image 4) -->
+        <button class="handsfree-dock-expand-btn" id="handsfree-dock-expand-btn" title="Expand chat history (or say 'expand more')">
+          <svg id="handsfree-expand-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"></polyline>
+          </svg>
+        </button>
       </div>
     `;
 
@@ -143,15 +160,33 @@ export class AiVoiceAgent {
     this.voiceBtn = this.windowElement.querySelector("#handsfree-dock-voice-btn");
     this.sendBtn = this.windowElement.querySelector("#handsfree-dock-send-btn");
     this.dockOrb = this.windowElement.querySelector("#handsfree-dock-orb");
+    this.expandBtn = this.windowElement.querySelector("#handsfree-dock-expand-btn");
+    this.expandIcon = this.windowElement.querySelector("#handsfree-expand-icon");
     this.headerStatus = this.windowElement.querySelector("#handsfree-header-status");
 
-    // Events
-    this.windowElement.querySelector("#handsfree-btn-minimize").addEventListener("click", () => {
-      this.collapse();
+    // State Transition Events
+    // Mini orb clicks -> collapse to Sleep Orb (State 1)
+    this.dockOrb.addEventListener("click", () => {
+      this.toOrb();
     });
 
-    this.dockOrb.addEventListener("click", () => {
-      this.collapse();
+    // Minimize in header -> collapse from Chat (State 3) to Bar (State 2)
+    this.windowElement.querySelector("#handsfree-btn-minimize").addEventListener("click", () => {
+      this.toBar();
+    });
+
+    // Sleep button in header -> collapse to Sleep Orb (State 1)
+    this.windowElement.querySelector("#handsfree-btn-sleep").addEventListener("click", () => {
+      this.toOrb();
+    });
+
+    // Expand chevron button -> toggles between Bar (State 2) and Chat (State 3)
+    this.expandBtn.addEventListener("click", () => {
+      if (this.state === "chat") {
+        this.toBar();
+      } else {
+        this.toChat();
+      }
     });
 
     this.windowElement.querySelector("#handsfree-btn-clear").addEventListener("click", () => {
@@ -182,34 +217,57 @@ export class AiVoiceAgent {
   }
 
   /* ----------------------------------------------------
-     3. COLLAPSE / EXPAND TRANSITIONS
+     3. 3-STATE TRANSITIONS
   ---------------------------------------------------- */
-  expand() {
-    this.isOpen = true;
-    this.orbContainer.classList.add("hidden");
-    this.windowElement.classList.remove("hidden");
-    this.scrollToBottom();
-    this.dockInput.focus();
-  }
-
-  collapse() {
-    this.isOpen = false;
+  // State 1: Sleep Orb
+  toOrb() {
+    this.state = "orb";
     this.windowElement.classList.add("hidden");
     this.orbContainer.classList.remove("hidden");
   }
 
-  toggle() {
-    if (this.isOpen) {
-      this.collapse();
-    } else {
-      this.expand();
-    }
+  // State 2: Slim Floating Pill Dock Bar (Image 4)
+  toBar() {
+    this.state = "bar";
+    this.orbContainer.classList.add("hidden");
+    this.windowElement.classList.remove("hidden");
+    this.windowElement.classList.remove("mode-chat");
+    this.windowElement.classList.add("mode-bar");
+
+    // Chevron points UP (ready to expand to chat)
+    this.expandIcon.innerHTML = `<polyline points="18 15 12 9 6 15"></polyline>`;
+    this.expandBtn.title = "Expand chat history (or say 'expand more')";
+  }
+
+  // State 3: Full Expanded Chat History Window (Image 1)
+  toChat() {
+    this.state = "chat";
+    this.orbContainer.classList.add("hidden");
+    this.windowElement.classList.remove("hidden");
+    this.windowElement.classList.remove("mode-bar");
+    this.windowElement.classList.add("mode-chat");
+
+    // Chevron points DOWN (ready to collapse back to bar)
+    this.expandIcon.innerHTML = `<polyline points="6 9 12 15 18 9"></polyline>`;
+    this.expandBtn.title = "Collapse to dock bar (or say 'collapse')";
+    this.scrollToBottom();
   }
 
   /* ----------------------------------------------------
-     4. MESSAGES & VISUAL FEEDBACK
+     4. REAL-TIME TRANSCRIPTION STREAMING & MESSAGES
   ---------------------------------------------------- */
+  setInterimText(text) {
+    if (!this.dockInput) return;
+    if (text) {
+      this.dockInput.placeholder = text;
+      this.setEqualizerActive(true);
+    } else {
+      this.dockInput.placeholder = "Speak command or ask Handsfree...";
+    }
+  }
+
   addUserMessage(text) {
+    this.setInterimText("");
     const timeStr = this._getCurrentTime();
     const row = document.createElement("div");
     row.className = "handsfree-msg-row user";
@@ -222,6 +280,7 @@ export class AiVoiceAgent {
   }
 
   addAgentMessage(text, commandTag = null) {
+    this.setInterimText("");
     const timeStr = this._getCurrentTime();
     const row = document.createElement("div");
     row.className = "handsfree-msg-row agent";
@@ -241,8 +300,8 @@ export class AiVoiceAgent {
     this.chatBody.appendChild(row);
     this.scrollToBottom();
 
-    // If collapsed, show toast on sleep orb
-    if (!this.isOpen) {
+    // If in Orb mode, show toast on sleep orb
+    if (this.state === "orb") {
       this.flashOrbToast(commandTag ? `✓ ${commandTag}` : text);
     }
   }
@@ -304,6 +363,7 @@ export class AiVoiceAgent {
   }
 
   _makeDraggable(targetEl, handleEl) {
+    if (!handleEl) return;
     let isDragging = false;
     let startX, startY, origX, origY;
 

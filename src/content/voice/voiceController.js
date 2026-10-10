@@ -2,7 +2,6 @@ import { parseCommand } from "./commandParser.js";
 import { VoiceOverlay } from "./voiceOverlay.js";
 import { TargetManager } from "./targetManager.js";
 import { AiVoiceAgent } from "./aiVoiceAgent.js";
-import { MSG } from "../../shared/messages.js";
 
 export class VoiceController {
   constructor() {
@@ -10,6 +9,10 @@ export class VoiceController {
     this.mode = "command"; // "command" or "dictation"
     this.enabled = false;
     
+    // Fast-path execution tracking for near-zero latency
+    this.lastFastCommand = null;
+    this.lastFastCommandTime = 0;
+
     // UI Elements
     this.overlay = new VoiceOverlay();
     this.targetManager = new TargetManager();
@@ -24,13 +27,12 @@ export class VoiceController {
       }
     });
 
-    // Fallback cursor position tracking so "click" always works
+    // Fallback cursor position tracking
     this._initCursorTracking();
     this._initSpeechRecognition();
   }
 
   _initCursorTracking() {
-    // Default cursor to center of screen until moved
     if (!window.__handsfree_cursor) {
       window.__handsfree_cursor = {
         x: window.innerWidth / 2,
@@ -38,9 +40,7 @@ export class VoiceController {
       };
     }
 
-    // Continuously update fallback coordinates on mouse move
     window.addEventListener("mousemove", (e) => {
-      // Don't overwrite if head tracking is actively providing coords
       if (!window.__handsfree_cursor_from_head) {
         window.__handsfree_cursor = { x: e.clientX, y: e.clientY };
       }
@@ -56,7 +56,7 @@ export class VoiceController {
 
     this.recognition = new SpeechRecognition();
     this.recognition.continuous = true;
-    this.recognition.interimResults = false;
+    this.recognition.interimResults = true; // Real-time streaming for near-zero latency
     this.recognition.lang = "en-US";
 
     this.recognition.onstart = () => {
@@ -65,19 +65,30 @@ export class VoiceController {
     };
 
     this.recognition.onresult = (event) => {
-      const last = event.results.length - 1;
-      const transcript = event.results[last][0].transcript;
-      this._handleTranscript(transcript);
+      let interimTranscript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        const result = event.results[i];
+        const transcript = result[0].transcript.trim();
+
+        if (result.isFinal) {
+          this._handleFinalTranscript(transcript);
+        } else {
+          interimTranscript += transcript + " ";
+          this._handleInterimTranscript(transcript);
+        }
+      }
+
+      if (interimTranscript) {
+        this.aiAgent.setInterimText(interimTranscript.trim());
+      }
     };
 
     this.recognition.onend = () => {
-      // Auto-restart if it was stopped by silence but feature is still enabled
       if (this.enabled) {
         try {
           this.recognition.start();
-        } catch (e) {
-          // Ignore if already started
-        }
+        } catch (e) {}
       } else {
         this.aiAgent.setEqualizerActive(false);
       }
@@ -101,9 +112,7 @@ export class VoiceController {
     if (this.recognition) {
       try {
         this.recognition.start();
-      } catch (e) {
-        // Recognition might already be running
-      }
+      } catch (e) {}
     }
   }
 
@@ -124,21 +133,57 @@ export class VoiceController {
   }
 
   handleExternalInput(text) {
-    this._handleTranscript(text);
+    this._handleFinalTranscript(text);
   }
 
-  _handleTranscript(transcript) {
+  /* ----------------------------------------------------
+     FAST-PATH EXECUTION ON INTERIM RESULTS (< 150ms)
+  ---------------------------------------------------- */
+  _handleInterimTranscript(interimText) {
+    if (this.mode !== "command") return;
+
+    const trimmed = interimText.trim();
+    if (!trimmed) return;
+
+    const command = parseCommand(trimmed);
+    const fastEligible = [
+      "SCROLL_DOWN", "SCROLL_UP", "GO_TOP", "GO_BOTTOM",
+      "GO_BACK", "GO_FORWARD", "CLICK", "DOUBLE_CLICK"
+    ];
+
+    const now = Date.now();
+    if (fastEligible.includes(command.type)) {
+      // Cooldown check (prevent repeated scroll on single breath)
+      if (now - this.lastFastCommandTime > 750 || this.lastFastCommand !== command.type) {
+        this.lastFastCommand = command.type;
+        this.lastFastCommandTime = now;
+        this._executeCommand(command, trimmed, true);
+      }
+    }
+  }
+
+  /* ----------------------------------------------------
+     FINAL TRANSCRIPT EXECUTION
+  ---------------------------------------------------- */
+  _handleFinalTranscript(transcript) {
     const trimmed = transcript.trim();
     if (!trimmed) return;
 
-    // Log user speech in the AI Voice Agent chat stream
+    this.aiAgent.setInterimText("");
     this.aiAgent.addUserMessage(trimmed);
 
     if (this.mode === "command") {
       const command = parseCommand(trimmed);
-      this._executeCommand(command, trimmed);
+
+      // If already executed by fast-path within 1 second, avoid re-executing
+      const now = Date.now();
+      if (this.lastFastCommand === command.type && now - this.lastFastCommandTime < 1000) {
+        this.lastFastCommand = null;
+        return;
+      }
+
+      this._executeCommand(command, trimmed, false);
     } else if (this.mode === "dictation") {
-      // Allow stopping dictation via voice
       const command = parseCommand(trimmed);
       if (command.type === "STOP_DICTATION") {
         this.setMode("command");
@@ -152,66 +197,68 @@ export class VoiceController {
     }
   }
 
-  _executeCommand(command, rawTranscript) {
-    console.log("[Handsfree] Executing command:", command);
-    const scrollStep = Math.max(300, Math.floor(window.innerHeight * 0.65));
+  _executeCommand(command, rawTranscript, isFastPath = false) {
+    console.log("[Handsfree] Executing command:", command.type, command.payload);
+    const scrollStep = Math.max(320, Math.floor(window.innerHeight * 0.65));
 
     switch (command.type) {
       case "SCROLL_DOWN":
         window.scrollBy({ top: scrollStep, behavior: "smooth" });
         this.overlay.flashCommand("scroll down");
-        this.aiAgent.addAgentMessage(`Scrolled down ${scrollStep}px`, "scroll down");
+        if (!isFastPath) this.aiAgent.addAgentMessage(`Scrolled down ${scrollStep}px`, "scroll down");
         break;
 
       case "SCROLL_UP":
         window.scrollBy({ top: -scrollStep, behavior: "smooth" });
         this.overlay.flashCommand("scroll up");
-        this.aiAgent.addAgentMessage(`Scrolled up ${scrollStep}px`, "scroll up");
+        if (!isFastPath) this.aiAgent.addAgentMessage(`Scrolled up ${scrollStep}px`, "scroll up");
         break;
 
       case "GO_TOP":
         window.scrollTo({ top: 0, behavior: "smooth" });
         this.overlay.flashCommand("top");
-        this.aiAgent.addAgentMessage("Scrolled to top of page", "go to top");
+        if (!isFastPath) this.aiAgent.addAgentMessage("Scrolled to top of page", "go to top");
         break;
 
       case "GO_BOTTOM":
         window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
         this.overlay.flashCommand("bottom");
-        this.aiAgent.addAgentMessage("Scrolled to bottom of page", "go to bottom");
+        if (!isFastPath) this.aiAgent.addAgentMessage("Scrolled to bottom of page", "go to bottom");
         break;
 
       case "GO_BACK":
         this.overlay.flashCommand("go back");
-        this.aiAgent.addAgentMessage("Navigating back in browser history", "back");
-        setTimeout(() => window.history.back(), 200);
+        if (!isFastPath) this.aiAgent.addAgentMessage("Navigating back in browser history", "back");
+        setTimeout(() => window.history.back(), 150);
         break;
 
       case "GO_FORWARD":
         this.overlay.flashCommand("go forward");
-        this.aiAgent.addAgentMessage("Navigating forward in browser history", "forward");
-        setTimeout(() => window.history.forward(), 200);
+        if (!isFastPath) this.aiAgent.addAgentMessage("Navigating forward in browser history", "forward");
+        setTimeout(() => window.history.forward(), 150);
         break;
 
       case "RELOAD":
         this.overlay.flashCommand("reload");
         this.aiAgent.addAgentMessage("Reloading page...", "reload");
-        setTimeout(() => window.location.reload(), 300);
+        setTimeout(() => window.location.reload(), 200);
         break;
 
       case "CLICK":
         const clicked = this._clickCursorTarget();
         this.overlay.flashCommand("click", clicked);
-        this.aiAgent.addAgentMessage(
-          clicked ? "Simulated click at cursor target" : "No interactive element found at cursor",
-          "click"
-        );
+        if (!isFastPath) {
+          this.aiAgent.addAgentMessage(
+            clicked ? "Simulated click at cursor target" : "No interactive element found at cursor",
+            "click"
+          );
+        }
         break;
 
       case "DOUBLE_CLICK":
         const dblClicked = this._clickCursorTarget(true);
         this.overlay.flashCommand("double click", dblClicked);
-        this.aiAgent.addAgentMessage("Simulated double-click at cursor target", "double click");
+        if (!isFastPath) this.aiAgent.addAgentMessage("Simulated double-click at cursor target", "double click");
         break;
 
       case "PRESS_ENTER":
@@ -232,10 +279,12 @@ export class VoiceController {
         this.aiAgent.addAgentMessage("Pressed Escape / blurred focus", "escape");
         break;
 
+      case "SEARCH_PAGE":
+        this._searchPage(command.payload);
+        break;
+
       case "TYPE_TEXT":
-        this._insertDictation(command.payload);
-        this.overlay.flashCommand(`type: ${command.payload}`);
-        this.aiAgent.addAgentMessage(`Typed: "${command.payload}"`, "type");
+        this._typeText(command.payload);
         break;
 
       case "START_DICTATION":
@@ -253,7 +302,7 @@ export class VoiceController {
       case "SHOW_TARGETS":
         const count = this.targetManager.showTargets();
         this.overlay.flashCommand(`targets: ${count}`);
-        this.aiAgent.addAgentMessage(`Generated ${count} numbered click targets. Say 'click [number]' or '# [number]' to select.`, "show targets");
+        this.aiAgent.addAgentMessage(`Generated ${count} numbered click targets. Say 'click [number]' to select.`, "show targets");
         break;
 
       case "HIDE_TARGETS":
@@ -272,14 +321,25 @@ export class VoiceController {
         );
         break;
 
-      case "EXPAND_ASSISTANT":
-        this.aiAgent.expand();
-        this.overlay.flashCommand("assistant opened");
+      // 3-State Assistant Transitions
+      case "WAKE_UP":
+        this.aiAgent.toBar();
+        this.overlay.flashCommand("bar opened");
         break;
 
-      case "COLLAPSE_ASSISTANT":
-        this.aiAgent.collapse();
-        this.overlay.flashCommand("assistant collapsed");
+      case "EXPAND_MORE":
+        this.aiAgent.toChat();
+        this.overlay.flashCommand("chat expanded");
+        break;
+
+      case "COLLAPSE_CHAT":
+        this.aiAgent.toBar();
+        this.overlay.flashCommand("chat collapsed");
+        break;
+
+      case "SLEEP":
+        this.aiAgent.toOrb();
+        this.overlay.flashCommand("sleep mode");
         break;
 
       case "PAUSE":
@@ -297,19 +357,15 @@ export class VoiceController {
         this.aiAgent.addAgentMessage("Voice listening resumed.", "resume");
         break;
 
-      case "SEARCH_PAGE":
-        this._searchPage(command.payload);
-        break;
-
       case "HELP":
-        this.aiAgent.expand();
+        this.aiAgent.toChat();
         this.aiAgent.addAgentMessage(
           "Available Voice Commands:\n" +
           "• Scrolling: 'scroll down', 'scroll up', 'top', 'bottom'\n" +
+          "• Search & Type: 'search [query]', 'type [text]'\n" +
           "• Navigation: 'back', 'forward', 'reload'\n" +
           "• Clicking: 'click', 'double click', 'show targets', 'click [number]'\n" +
-          "• Typing: 'type [phrase]', 'enter', 'tab', 'start dictation'\n" +
-          "• Assistant: 'wake up', 'sleep', 'pause', 'resume'",
+          "• 3-State Controls: 'wake up' (open bar), 'expand more' (open chat), 'collapse chat' (bar mode), 'sleep' (orb mode)",
           "help"
         );
         break;
@@ -320,12 +376,102 @@ export class VoiceController {
         break;
     }
 
-    // Forward message to runtime for background / other workstreams
     try {
       if (chrome?.runtime?.sendMessage) {
         chrome.runtime.sendMessage({ type: command.type, payload: command.payload });
       }
     } catch (e) {}
+  }
+
+  /* ----------------------------------------------------
+     SEARCH & INPUT HELPERS (GOOGLE, WIKIPEDIA, ALL SITES)
+  ---------------------------------------------------- */
+  _findSearchInput() {
+    const selectors = [
+      'textarea[name="q"]', // Google Search bar!
+      'input[name="q"]',    // Google, Bing, DuckDuckGo
+      '#searchInput',       // Wikipedia search
+      'input[type="search"]',
+      'input[name="search"]',
+      'input[id*="search" i]',
+      'input[placeholder*="search" i]',
+      'textarea[placeholder*="search" i]',
+      '[aria-label*="search" i]',
+      '[role="searchbox"]',
+      '[role="combobox"]',
+      'input[type="text"]',
+      'textarea'
+    ];
+
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el && (el.offsetWidth > 0 || el.offsetHeight > 0)) {
+        return el;
+      }
+    }
+    return null;
+  }
+
+  _searchPage(query) {
+    if (!query) return;
+
+    const cleanQuery = query.replace(/^(?:search for|search|google|find)\s+/i, "").trim();
+    const searchInput = this._findSearchInput();
+
+    if (searchInput) {
+      searchInput.focus();
+      this._setInputValue(searchInput, cleanQuery);
+      this._pressEnter(searchInput);
+      this.overlay.flashCommand(`search: ${cleanQuery}`);
+      this.aiAgent.addAgentMessage(`Searched for "${cleanQuery}" on page`, "search");
+    } else {
+      // If no search input on current page, redirect directly to Google search
+      this.overlay.flashCommand(`google: ${cleanQuery}`);
+      this.aiAgent.addAgentMessage(`Searching Google for "${cleanQuery}"...`, "search");
+      window.location.href = `https://www.google.com/search?q=${encodeURIComponent(cleanQuery)}`;
+    }
+  }
+
+  _typeText(text) {
+    if (!text) return;
+
+    const cleanText = text.replace(/^(?:type|write|input)\s+/i, "").trim();
+    let target = document.activeElement;
+
+    if (!target || target === document.body || target === document.documentElement) {
+      target = this._findSearchInput();
+    }
+
+    if (target) {
+      target.focus();
+      this._setInputValue(target, cleanText);
+      this.overlay.flashCommand(`type: ${cleanText}`);
+      this.aiAgent.addAgentMessage(`Typed "${cleanText}" into field`, "type");
+    } else {
+      this.overlay.flashCommand("no input field", false);
+      this.aiAgent.addAgentMessage("Could not find an active text input to type into.", "type");
+    }
+  }
+
+  _setInputValue(element, val) {
+    element.focus();
+
+    // Use native prototype descriptor so React, Vue, Google listeners update
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLTextAreaElement.prototype, "value"
+    )?.set || Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype, "value"
+    )?.set;
+
+    if (setter) {
+      setter.call(element, val);
+    } else {
+      element.value = val;
+    }
+
+    // Trigger standard input events
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
   _clickCursorTarget(isDoubleClick = false) {
@@ -336,19 +482,16 @@ export class VoiceController {
 
     let element = document.elementFromPoint(cursor.x, cursor.y);
 
-    // If cursor is over overlay or body, try to find active or nearest clickable element
     if (!element || element === document.body || element === document.documentElement || element.id?.startsWith("handsfree")) {
       if (document.activeElement && document.activeElement !== document.body) {
         element = document.activeElement;
       } else {
-        // Find center-most button or link in view
         element = document.querySelector("a, button, input") || element;
       }
     }
 
     if (!element) return false;
 
-    // Simulate pointer and mouse events
     const eventInit = {
       view: window,
       bubbles: true,
@@ -375,7 +518,6 @@ export class VoiceController {
       element.click();
     }
 
-    // Brief highlight animation
     const originalOutline = element.style.outline;
     element.style.outline = "2px solid #2dd4bf";
     setTimeout(() => {
@@ -385,20 +527,23 @@ export class VoiceController {
     return true;
   }
 
-  _pressEnter() {
-    const el = document.activeElement || document.body;
+  _pressEnter(targetEl = null) {
+    const el = targetEl || document.activeElement || document.body;
     const evtInit = { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true };
     el.dispatchEvent(new KeyboardEvent("keydown", evtInit));
     el.dispatchEvent(new KeyboardEvent("keypress", evtInit));
     el.dispatchEvent(new KeyboardEvent("keyup", evtInit));
 
-    // If active element is an input inside a form, submit form
     if (el.form) {
       if (typeof el.form.requestSubmit === "function") {
         el.form.requestSubmit();
       } else {
         el.form.submit();
       }
+    } else {
+      // Find submit or search button near the input
+      const submitBtn = el.parentElement?.querySelector('button[type="submit"], input[type="submit"], [aria-label*="search" i]');
+      if (submitBtn) submitBtn.click();
     }
   }
 
@@ -414,63 +559,20 @@ export class VoiceController {
     }
   }
 
-  _searchPage(query) {
-    if (!query) return;
-    
-    // Check for search input on page first (e.g., Wikipedia #searchInput)
-    const searchInput = document.querySelector('input[type="search"], input[name="search"], #searchInput, input[placeholder*="Search" i]');
-    if (searchInput) {
-      searchInput.focus();
-      this._insertDictation(query);
-      this._pressEnter();
-      this.overlay.flashCommand(`search: ${query}`);
-      this.aiAgent.addAgentMessage(`Entered search query: "${query}"`, "search");
-      return;
-    }
-
-    // Fallback: window.find
-    if (window.find) {
-      const found = window.find(query, false, false, true, false, true, false);
-      this.overlay.flashCommand(found ? `found: ${query}` : "not found", found);
-      this.aiAgent.addAgentMessage(
-        found ? `Found occurrence of "${query}" on page.` : `Could not find "${query}" on this page.`,
-        "find"
-      );
-    }
-  }
-
   _insertDictation(transcript) {
     let activeEl = document.activeElement;
 
-    // If no text element is focused, try to locate a search or text input on the page
     if (!activeEl || activeEl === document.body) {
-      activeEl = document.querySelector('input[type="search"], input[type="text"], textarea') || activeEl;
-      if (activeEl && activeEl !== document.body) {
-        activeEl.focus();
-      }
+      activeEl = this._findSearchInput();
     }
 
-    if (!activeEl || activeEl === document.body) return;
+    if (!activeEl) return;
 
     if (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA") {
       const currentVal = activeEl.value;
       const space = currentVal.length > 0 && !currentVal.endsWith(" ") ? " " : "";
       const newValue = currentVal + space + transcript.trim();
-
-      const setter = Object.getOwnPropertyDescriptor(
-        window.HTMLInputElement.prototype, "value"
-      )?.set || Object.getOwnPropertyDescriptor(
-        window.HTMLTextAreaElement.prototype, "value"
-      )?.set;
-
-      if (setter) {
-        setter.call(activeEl, newValue);
-      } else {
-        activeEl.value = newValue;
-      }
-
-      activeEl.dispatchEvent(new Event("input", { bubbles: true }));
-      activeEl.dispatchEvent(new Event("change", { bubbles: true }));
+      this._setInputValue(activeEl, newValue);
     } else if (activeEl.isContentEditable) {
       const space = activeEl.innerText.length > 0 && !activeEl.innerText.endsWith(" ") ? " " : "";
       activeEl.innerText += space + transcript.trim();
@@ -479,7 +581,6 @@ export class VoiceController {
   }
 
   _handleAiQuery(query, rawTranscript) {
-    // Generate intelligent contextual response
     const pageTitle = document.title || "this webpage";
     let reply = `I heard: "${rawTranscript}". `;
 
@@ -489,7 +590,7 @@ export class VoiceController {
       const firstP = document.querySelector('p')?.innerText?.slice(0, 200);
       reply += `You are viewing "${pageTitle}". ${metaDesc || firstP || "Say 'scroll down' to explore or 'show targets' to click links."}`;
     } else {
-      reply += `Handsfree provides hands-free web navigation and voice control. Say 'show targets' to click elements by number, 'scroll down' to scroll, or 'help' for command list.`;
+      reply += `Handsfree is listening. Say 'search [query]' to search, 'type [text]' to type, 'show targets' for numbered buttons, or 'help' for commands.`;
     }
 
     this.aiAgent.addAgentMessage(reply);

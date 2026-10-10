@@ -1,12 +1,15 @@
 /* ==========================================================================
-   HANDSFREE AI VOICE AGENT & HOLOGRAPHIC SLEEP ORB STYLES (IMAGE 2 & IMAGE 3)
+   HANDSFREE AI VOICE AGENT & HOLOGRAPHIC SLEEP ORB (3-STATE SYSTEM)
+   State 1: Small Sleep Orb (Image 2)
+   State 2: Floating Pill Dock Bar (Image 4)
+   State 3: Full Chat History Window (Image 1)
    ========================================================================== */
 
-/* 1. HOLOGRAPHIC GLOWING SLEEP ORB (IMAGE 2) */
+/* 1. STATE 1: HOLOGRAPHIC GLOWING SLEEP ORB (IMAGE 2) */
 #handsfree-sleep-orb-container {
   position: fixed;
-  bottom: 28px;
-  right: 28px;
+  bottom: 24px;
+  right: 24px;
   z-index: 2147483645;
   display: flex;
   flex-direction: column;
@@ -108,12 +111,12 @@
   width: 18px;
   height: 10px;
   border-radius: 50%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255) 100%);
   transform: rotate(-25deg);
   pointer-events: none;
 }
 
-/* Satellite Turquoise status pip (Image 3 design) */
+/* Satellite Turquoise status pip (Image 3 & 4 design) */
 .handsfree-orb-pip {
   position: absolute;
   top: -2px;
@@ -154,13 +157,11 @@
   transform: translateY(0);
 }
 
-/* 2. FLOATING AI VOICE AGENT WINDOW (IMAGE 3) */
+/* 2. FLOATING AI VOICE AGENT WINDOW (STATES 2 & 3) */
 #handsfree-ai-agent-window {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  width: 460px;
-  max-width: calc(100vw - 32px);
   z-index: 2147483647;
   display: flex;
   flex-direction: column;
@@ -168,20 +169,65 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
   box-shadow: 
     0 16px 40px -10px rgba(0, 0, 0, 0.7),
     0 0 25px -5px rgba(13, 148, 136, 0.2);
   color: #f8fafc;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   overflow: hidden;
-  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.25s ease, transform 0.25s ease, border-radius 0.25s ease, width 0.25s ease;
 }
 
 #handsfree-ai-agent-window.hidden {
   opacity: 0;
   pointer-events: none;
   transform: scale(0.85) translateY(30px);
+}
+
+/* STATE 2: SLIM FLOATING PILL DOCK BAR (IMAGE 4) */
+#handsfree-ai-agent-window.mode-bar {
+  width: 540px;
+  max-width: calc(100vw - 32px);
+  border-radius: 9999px;
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.6),
+    0 0 20px rgba(13, 148, 136, 0.25);
+}
+
+#handsfree-ai-agent-window.mode-bar .handsfree-agent-header {
+  display: none !important;
+}
+
+#handsfree-ai-agent-window.mode-bar .handsfree-agent-chat-body {
+  display: none !important;
+  height: 0 !important;
+  padding: 0 !important;
+}
+
+#handsfree-ai-agent-window.mode-bar .handsfree-agent-dock {
+  border-top: none;
+  padding: 8px 12px;
+  border-radius: 9999px;
+}
+
+/* STATE 3: FULL EXPANDED CHAT HISTORY WINDOW (IMAGE 1) */
+#handsfree-ai-agent-window.mode-chat {
+  width: 480px;
+  max-width: calc(100vw - 32px);
+  border-radius: 20px;
+}
+
+#handsfree-ai-agent-window.mode-chat .handsfree-agent-header {
+  display: flex !important;
+}
+
+#handsfree-ai-agent-window.mode-chat .handsfree-agent-chat-body {
+  display: flex !important;
+  height: 250px !important;
+}
+
+#handsfree-ai-agent-window.mode-chat .handsfree-agent-dock {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Agent Header */
@@ -260,9 +306,9 @@
   color: #ffffff;
 }
 
-/* Chat Messages Area (Image 3) */
+/* Chat Messages Area (Image 1 & 3) */
 .handsfree-agent-chat-body {
-  height: 240px;
+  height: 250px;
   min-height: 180px;
   max-height: 380px;
   padding: 14px;
@@ -344,21 +390,21 @@
   margin-top: 4px;
 }
 
-/* 3. BOTTOM DOCK BAR (IMAGE 3) */
+/* 3. BOTTOM DOCK BAR (IMAGE 3 & 4) */
 .handsfree-agent-dock {
-  padding: 10px 12px;
+  padding: 8px 12px;
   background: rgba(15, 23, 42, 0.95);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
-/* Mini Holographic Orb in Dock (Image 3) */
+/* Mini Holographic Orb in Dock */
 .handsfree-dock-orb {
   position: relative;
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   flex-shrink: 0;
   background: radial-gradient(circle, #020617 0%, #1e1b4b 100%);
@@ -385,8 +431,8 @@
 
 .handsfree-dock-orb-core {
   position: relative;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #1e1b4b 0%, #030712 90%);
   z-index: 2;
@@ -406,12 +452,12 @@
   z-index: 4;
 }
 
-/* Sound Wave Equalizer Bars (Image 3) */
+/* Sound Wave Equalizer Bars */
 .handsfree-soundwave {
   display: flex;
   align-items: center;
   gap: 3px;
-  height: 22px;
+  height: 20px;
   flex-shrink: 0;
   padding: 0 2px;
 }
@@ -443,7 +489,7 @@
   font-size: 13px;
   font-family: inherit;
   padding: 6px 4px;
-  min-width: 80px;
+  min-width: 60px;
 }
 
 .handsfree-dock-input::placeholder {
@@ -451,17 +497,17 @@
   font-size: 12.5px;
 }
 
-/* Voice Button (Image 3) with Turquoise Mic Icon */
+/* Voice Button with Turquoise Mic Icon */
 .handsfree-dock-voice-btn {
   background: rgba(30, 41, 59, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 9999px;
-  padding: 6px 12px;
+  padding: 5px 10px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   color: #e2e8f0;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
   flex-shrink: 0;
@@ -486,10 +532,10 @@
   stroke: #2dd4bf;
 }
 
-/* Circular Send Button (Image 3) */
+/* Circular Send Button */
 .handsfree-dock-send-btn {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: #0d9488; /* turquoise teal */
   border: none;
@@ -510,6 +556,29 @@
 
 .handsfree-dock-send-btn:active {
   transform: scale(0.96);
+}
+
+/* Expand Chevron Button (Image 4) */
+.handsfree-dock-expand-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.handsfree-dock-expand-btn:hover {
+  background: rgba(51, 65, 85, 0.9);
+  color: #2dd4bf;
+  border-color: rgba(45, 212, 191, 0.35);
+  transform: scale(1.06);
 }
 
 /* ANIMATIONS */

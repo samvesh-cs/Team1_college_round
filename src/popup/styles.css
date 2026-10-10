@@ -36,6 +36,25 @@ html, body {
   box-sizing: border-box;
 }
 
+/* Full Tab / Standalone Browser Window Mode */
+body.tab-view {
+  width: 100% !important;
+  min-width: 100% !important;
+  min-height: 100vh !important;
+  background-color: #f1f5f9;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  overflow-y: auto;
+}
+
+body.tab-view #root {
+  width: 100% !important;
+  max-width: 900px;
+  min-height: 100vh;
+  margin: 0 auto;
+}
+
 #root {
   width: 100%;
   min-height: 580px;

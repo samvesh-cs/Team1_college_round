@@ -32,6 +32,13 @@ export default function App() {
   const [fps, setFps] = useState(60.0);
   const [latency, setLatency] = useState(12);
 
+  // Detect if running in full tab mode or popup mode
+  const isTabMode = typeof window !== 'undefined' && (
+    window.innerWidth > 800 ||
+    window.location.search.includes('mode=tab') ||
+    window.location.hash.includes('tab')
+  );
+
   // Window Resizability state
   const [windowSize, setWindowSize] = useState('compact'); // 'compact' (390px) | 'medium' (540px) | 'wide' (720px)
   const [customWidth, setCustomWidth] = useState(null);
@@ -39,6 +46,17 @@ export default function App() {
 
   // Synchronize Chrome extension popup window dimensions
   useEffect(() => {
+    if (isTabMode) {
+      document.body.classList.add('tab-view');
+      try {
+        document.documentElement.style.width = '100%';
+        document.body.style.width = '100%';
+        document.documentElement.style.height = '100%';
+        document.body.style.height = '100%';
+      } catch (e) {}
+      return;
+    }
+
     const w = customWidth || (windowSize === 'medium' ? 540 : windowSize === 'wide' ? 720 : 390);
     const h = customHeight || 580;
     try {
@@ -47,17 +65,21 @@ export default function App() {
       document.documentElement.style.height = `${h}px`;
       document.body.style.height = `${h}px`;
     } catch (e) {}
-  }, [windowSize, customWidth, customHeight]);
+  }, [windowSize, customWidth, customHeight, isTabMode]);
 
   const openInNewWindow = () => {
+    const tabUrl = (typeof chrome !== 'undefined' && chrome.runtime?.getURL)
+      ? chrome.runtime.getURL('src/popup/index.html?mode=tab')
+      : `${window.location.origin}${window.location.pathname}?mode=tab`;
+
     try {
       if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
-        chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/index.html') });
+        chrome.tabs.create({ url: tabUrl });
       } else {
-        window.open(window.location.href, '_blank');
+        window.open(tabUrl, '_blank');
       }
     } catch (e) {
-      window.open(window.location.href, '_blank');
+      window.open(tabUrl, '_blank');
     }
   };
 
@@ -94,8 +116,11 @@ export default function App() {
 
   return (
     <div 
-      style={{ width: widthStyle, height: heightStyle, minWidth: '360px', minHeight: '520px' }}
-      className="bg-[#f8fafc] text-slate-800 flex flex-col font-sans overflow-hidden select-none relative transition-all duration-150"
+      style={isTabMode ? undefined : { width: widthStyle, height: heightStyle, minWidth: '360px', minHeight: '520px' }}
+      className={isTabMode 
+        ? "w-full max-w-4xl min-h-screen mx-auto bg-[#f8fafc] text-slate-800 flex flex-col font-sans select-none relative shadow-2xl border-x border-slate-200/80" 
+        : "bg-[#f8fafc] text-slate-800 flex flex-col font-sans overflow-hidden select-none relative transition-all duration-150"
+      }
     >
       {/* Ambient glowing radial spotlight */}
       <div
@@ -783,28 +808,81 @@ export default function App() {
         <span className="font-mono text-teal-700 font-semibold">ActiveTab Bound</span>
       </footer>
 
-      {/* Interactive Bottom-Right Corner Drag-Resize Handle */}
-      <div 
-        onMouseDown={(e) => {
-          e.preventDefault();
-          const startX = e.clientX;
-          const startY = e.clientY;
-          const startW = e.currentTarget.parentElement.offsetWidth;
-          const startH = e.currentTarget.parentElement.offsetHeight;
-          const onMouseMove = (moveEvt) => {
-            setCustomWidth(Math.max(360, startW + (moveEvt.clientX - startX)));
-            setCustomHeight(Math.max(500, startH + (moveEvt.clientY - startY)));
-          };
-          const onMouseUp = () => {
-            window.removeEventListener('mousemove', onMouseMove);
-            window.removeEventListener('mouseup', onMouseUp);
-          };
-          window.addEventListener('mousemove', onMouseMove);
-          window.addEventListener('mouseup', onMouseUp);
-        }}
-        className="resize-handle"
-        title="Drag corner to freely resize window"
-      />
+      {/* Interactive Border & Corner Resizers (Active in Popup Mode) */}
+      {!isTabMode && (
+        <>
+          {/* Right Edge Resizer (Cursor changes to ew-resize) */}
+          <div 
+            onMouseDown={(e) => {
+              e.preventDefault();
+              const startX = e.clientX;
+              const startW = e.currentTarget.parentElement.offsetWidth;
+              const onMouseMove = (moveEvt) => {
+                const newW = Math.min(800, Math.max(360, startW + (moveEvt.clientX - startX)));
+                setCustomWidth(newW);
+                document.body.style.width = `${newW}px`;
+              };
+              const onMouseUp = () => {
+                window.removeEventListener('mousemove', onMouseMove);
+                window.removeEventListener('mouseup', onMouseUp);
+              };
+              window.addEventListener('mousemove', onMouseMove);
+              window.addEventListener('mouseup', onMouseUp);
+            }}
+            className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-teal-500/30 active:bg-teal-500/50 z-50 transition-colors"
+            title="Drag right border to resize width"
+          />
+
+          {/* Bottom Edge Resizer (Cursor changes to ns-resize) */}
+          <div 
+            onMouseDown={(e) => {
+              e.preventDefault();
+              const startY = e.clientY;
+              const startH = e.currentTarget.parentElement.offsetHeight;
+              const onMouseMove = (moveEvt) => {
+                const newH = Math.min(600, Math.max(500, startH + (moveEvt.clientY - startY)));
+                setCustomHeight(newH);
+                document.body.style.height = `${newH}px`;
+              };
+              const onMouseUp = () => {
+                window.removeEventListener('mousemove', onMouseMove);
+                window.removeEventListener('mouseup', onMouseUp);
+              };
+              window.addEventListener('mousemove', onMouseMove);
+              window.addEventListener('mouseup', onMouseUp);
+            }}
+            className="absolute left-0 bottom-0 right-0 h-2 cursor-ns-resize hover:bg-teal-500/30 active:bg-teal-500/50 z-50 transition-colors"
+            title="Drag bottom border to resize height"
+          />
+
+          {/* Bottom-Right Corner Drag-Resize Handle (Cursor changes to nwse-resize) */}
+          <div 
+            onMouseDown={(e) => {
+              e.preventDefault();
+              const startX = e.clientX;
+              const startY = e.clientY;
+              const startW = e.currentTarget.parentElement.offsetWidth;
+              const startH = e.currentTarget.parentElement.offsetHeight;
+              const onMouseMove = (moveEvt) => {
+                const newW = Math.min(800, Math.max(360, startW + (moveEvt.clientX - startX)));
+                const newH = Math.min(600, Math.max(500, startH + (moveEvt.clientY - startY)));
+                setCustomWidth(newW);
+                setCustomHeight(newH);
+                document.body.style.width = `${newW}px`;
+                document.body.style.height = `${newH}px`;
+              };
+              const onMouseUp = () => {
+                window.removeEventListener('mousemove', onMouseMove);
+                window.removeEventListener('mouseup', onMouseUp);
+              };
+              window.addEventListener('mousemove', onMouseMove);
+              window.addEventListener('mouseup', onMouseUp);
+            }}
+            className="resize-handle cursor-nwse-resize"
+            title="Drag corner to freely resize window"
+          />
+        </>
+      )}
     </div>
   );
 }
