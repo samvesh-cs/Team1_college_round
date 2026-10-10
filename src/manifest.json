@@ -19,7 +19,8 @@
         "src/content/styles/overlay.css",
         "src/content/styles/voice-overlay.css",
         "src/content/styles/activation-overlay.css",
-        "src/content/styles/calibration-overlay.css"
+        "src/content/styles/calibration-overlay.css",
+        "src/content/styles/ai-agent.css"
       ],
       "run_at": "document_idle"
     }

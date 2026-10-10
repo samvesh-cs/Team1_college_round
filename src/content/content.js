@@ -46,6 +46,7 @@ if (!window.__handsfree_content_initialized) {
   // === WS-2: Voice Controller ===
   voiceController = new VoiceController();
   window.__handsfree_voice = voiceController;
+  window.__handsfree_voiceController = voiceController;
 
   // === WS-3: Dwell Activation & Target Management ===
   dwellController = new DwellController();
@@ -131,7 +132,7 @@ if (!window.__handsfree_content_initialized) {
         console.debug("[Handsfree] Skipping voice auto-start in background tab.");
       } else {
         try {
-          voiceController.start();
+          voiceController.start(settings.agentState || "bar");
         } catch (err) {
           console.warn("[Handsfree] Voice auto-start unavailable:", err && err.message ? err.message : err);
         }
@@ -151,6 +152,44 @@ if (!window.__handsfree_content_initialized) {
     .catch(() => {
       autoStart(currentSettings);
     });
+
+  // Auto-restore engine state on page load (across navigation, back, forward, and Google searches)
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.get(["engineRunning", "voiceEnabled", "agentState"], (res) => {
+        if (res?.engineRunning && res?.voiceEnabled !== false) {
+          console.log("[Handsfree] Auto-activating voice engine on navigated page with state:", res.agentState || "bar");
+          setTimeout(() => {
+            voiceController.start(res.agentState || "bar");
+          }, 150);
+        }
+      });
+
+      // Listen to storage changes so popup controls immediately sync across all open tabs
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === "local") {
+          if (changes.engineRunning !== undefined) {
+            if (changes.engineRunning.newValue) {
+              chrome.storage.local.get(["agentState"], (st) => {
+                voiceController.start(st?.agentState || "bar");
+              });
+            } else {
+              voiceController.stop();
+            }
+          }
+          if (changes.voiceEnabled !== undefined) {
+            if (changes.voiceEnabled.newValue) {
+              voiceController.start("bar");
+            } else {
+              voiceController.stop();
+            }
+          }
+        }
+      });
+    }
+  } catch (e) {
+    console.warn("[Handsfree] Storage access warning:", e);
+  }
 
   let rafId = null;
   let lastFrameTime = performance.now();
@@ -285,10 +324,12 @@ if (!window.__handsfree_content_initialized) {
         break;
 
       // === WS-2: Voice Commands & Dictation ===
-      case MSG.START_VOICE:
-        voiceController.start();
+      case MSG.START_VOICE: {
+        const targetState = message.agentState || "bar";
+        voiceController.start(targetState);
         sendResponse({ ok: true, status: "voice_started" });
         break;
+      }
 
       case MSG.STOP_VOICE:
         voiceController.stop();
@@ -296,12 +337,13 @@ if (!window.__handsfree_content_initialized) {
         break;
 
       case MSG.VOICE_YIELD:
-        voiceController.release();
+      case "YIELD_MIC":
+        voiceController.yieldMic();
         sendResponse({ ok: true, status: "voice_yielded" });
         break;
 
       case MSG.VOICE_RESUME:
-        voiceController.activate();
+        voiceController.resumeMic();
         sendResponse({ ok: true, status: "voice_resumed", listening: voiceController.listening });
         break;
 

@@ -25,16 +25,51 @@
   }
 }
 
-html, body {
-  width: 390px;
-  height: 580px;
-  max-height: 580px;
+html {
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  box-sizing: border-box;
+  background-color: transparent;
+  border-radius: 18px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
   background-color: #f8fafc;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   box-sizing: border-box;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 12px 30px -4px rgba(15, 23, 42, 0.15);
+  transition: width 0.15s ease, height 0.15s ease;
+}
+
+/* Full Tab / Standalone Browser Window Mode */
+body.tab-view {
+  width: 100% !important;
+  min-width: 100% !important;
+  min-height: 100vh !important;
+  background-color: #f1f5f9;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  overflow-y: auto;
+  border-radius: 0;
+}
+
+body.tab-view #root {
+  width: 100% !important;
+  max-width: 900px;
+  min-height: 100vh;
+  margin: 0 auto;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .light-card {
@@ -58,6 +93,34 @@ html, body {
 .toggle-active {
   background: #0f766e !important;
   box-shadow: 0 2px 6px rgba(15, 118, 110, 0.35);
+}
+
+/* Fluid Resizer Grip Handle */
+.resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  z-index: 50;
+  opacity: 0.45;
+  transition: opacity 0.2s;
+}
+
+.resize-handle:hover {
+  opacity: 1;
+}
+
+.resize-handle::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid #0d9488;
+  border-bottom: 2px solid #0d9488;
 }
 
 /* Sleek minimalist scrollbar */
