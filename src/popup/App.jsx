@@ -23,14 +23,22 @@ export default function App() {
   const [typingEnabled, setTypingEnabled] = useState(false);
   const [intentLockEnabled, setIntentLockEnabled] = useState(true);
 
-  // Calibration state
-  const [calibrationStep, setCalibrationStep] = useState(3);
-  const [dwellTime, setDwellTime] = useState(800);
-  const [smoothingFactor, setSmoothingFactor] = useState(0.85);
+  // Window Resizability state
+  const [windowSize, setWindowSize] = useState('compact'); // 'compact' (390px) | 'medium' (540px) | 'wide' (720px)
+  const [customWidth, setCustomWidth] = useState(null);
+  const [customHeight, setCustomHeight] = useState(null);
 
-  // Simulated telemetry
-  const [fps, setFps] = useState(60.0);
-  const [latency, setLatency] = useState(12);
+  const openInNewWindow = () => {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
+        chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/index.html') });
+      } else {
+        window.open(window.location.href, '_blank');
+      }
+    } catch (e) {
+      window.open(window.location.href, '_blank');
+    }
+  };
 
   const toggleEngine = () => {
     const nextState = !isRunning;
@@ -53,8 +61,21 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isRunning]);
 
+  const widthStyle = customWidth 
+    ? `${customWidth}px` 
+    : windowSize === 'medium' 
+    ? '540px' 
+    : windowSize === 'wide' 
+    ? '720px' 
+    : '390px';
+
+  const heightStyle = customHeight ? `${customHeight}px` : '580px';
+
   return (
-    <div className="w-[390px] h-[580px] bg-[#f8fafc] text-slate-800 flex flex-col font-sans overflow-hidden select-none relative">
+    <div 
+      style={{ width: widthStyle, height: heightStyle, minWidth: '360px', minHeight: '520px' }}
+      className="bg-[#f8fafc] text-slate-800 flex flex-col font-sans overflow-hidden select-none relative transition-all duration-150"
+    >
       {/* Ambient glowing radial spotlight */}
       <div
         aria-hidden="true"
@@ -90,27 +111,55 @@ export default function App() {
           </div>
         </div>
 
-        {/* Dynamic Status Indicator */}
-        <div
-          className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold border transition-colors ${
-            isRunning
-              ? 'bg-teal-50 border-teal-300 text-teal-800 shadow-xs'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-          }`}
-        >
-          <span className="relative flex h-2 w-2">
-            <span
-              className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                isRunning ? 'bg-teal-500 animate-ping' : 'bg-emerald-500 animate-ping'
-              }`}
-            ></span>
-            <span
-              className={`relative inline-flex rounded-full h-2 w-2 ${
-                isRunning ? 'bg-teal-600' : 'bg-emerald-600'
-              }`}
-            ></span>
-          </span>
-          <span>{isRunning ? 'Active' : 'Ready'}</span>
+        {/* Header Right Actions: Status & Window Controls */}
+        <div className="flex items-center gap-1.5">
+          {/* Dynamic Status Indicator */}
+          <div
+            className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold border transition-colors ${
+              isRunning
+                ? 'bg-teal-50 border-teal-300 text-teal-800 shadow-xs'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            }`}
+          >
+            <span className="relative flex h-2 w-2">
+              <span
+                className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                  isRunning ? 'bg-teal-500 animate-ping' : 'bg-emerald-500 animate-ping'
+                }`}
+              ></span>
+              <span
+                className={`relative inline-flex rounded-full h-2 w-2 ${
+                  isRunning ? 'bg-teal-600' : 'bg-emerald-600'
+                }`}
+              ></span>
+            </span>
+            <span>{isRunning ? 'Active' : 'Ready'}</span>
+          </div>
+
+          {/* Sizing Preset Switcher */}
+          <button
+            onClick={() => {
+              setCustomWidth(null);
+              setWindowSize(prev => prev === 'compact' ? 'medium' : prev === 'medium' ? 'wide' : 'compact');
+            }}
+            title={`Toggle size: ${windowSize} (click for 390px / 540px / 720px)`}
+            className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200/80 transition-colors"
+            type="button"
+          >
+            {windowSize === 'compact' ? '390px' : windowSize === 'medium' ? '540px' : '720px'}
+          </button>
+
+          {/* Full Tab / Resizable Pop-out Window Button */}
+          <button
+            onClick={openInNewWindow}
+            title="Open in full resizable tab / window"
+            className="p-1 rounded text-slate-400 hover:text-teal-700 hover:bg-teal-50 transition-colors"
+            type="button"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -157,8 +206,11 @@ export default function App() {
             }`}
             type="button"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" strokeLinecap="round" strokeLinejoin="round"></path>
+            <svg className="w-3.5 h-3.5 text-teal-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" fill="currentColor" fillOpacity="0.2"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="22"/>
+              <line x1="8" y1="22" x2="16" y2="22"/>
             </svg>
             Voice Ref
           </button>
@@ -233,17 +285,20 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Toggle 2: Voice Commands */}
+              {/* Toggle 2: Voice Commands (Turquoise Theme & Modern Mic) */}
               <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/90 hover:border-slate-300 transition-all shadow-xs">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-200 shrink-0">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" strokeLinecap="round" strokeLinejoin="round"></path>
+                  <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center border border-teal-200 shrink-0 shadow-xs">
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" fill="currentColor" fillOpacity="0.25"/>
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                      <line x1="12" y1="19" x2="12" y2="22"/>
+                      <line x1="8" y1="22" x2="16" y2="22"/>
                     </svg>
                   </div>
                   <div>
                     <h3 className="text-xs font-semibold text-slate-900 leading-tight">Voice Commands</h3>
-                    <p className="text-[10px] text-slate-500">"Click", "Scroll", "Back", "Tab"</p>
+                    <p className="text-[10px] text-slate-500">"Click", "Scroll", "Back", "Targets"</p>
                   </div>
                 </div>
                 <button
@@ -671,6 +726,31 @@ export default function App() {
                   </div>
                 </div>
               </div>
+
+              {/* Category 4 */}
+              <div className="p-2.5 rounded-xl bg-white border border-slate-200/90 shadow-xs">
+                <span className="text-[10px] font-mono font-bold text-teal-700 uppercase tracking-wider">
+                  AI Assistant &amp; Numbered Targets
+                </span>
+                <div className="mt-1.5 grid grid-cols-2 gap-1.5 text-xs">
+                  <div className="flex items-center justify-between p-1.5 rounded bg-slate-50 border border-slate-100">
+                    <span className="font-semibold text-slate-800">"Show Targets"</span>
+                    <span className="text-[10px] text-teal-600 font-mono font-bold">Badges</span>
+                  </div>
+                  <div className="flex items-center justify-between p-1.5 rounded bg-slate-50 border border-slate-100">
+                    <span className="font-semibold text-slate-800">"Click [number]"</span>
+                    <span className="text-[10px] text-teal-600 font-mono font-bold">Select</span>
+                  </div>
+                  <div className="flex items-center justify-between p-1.5 rounded bg-slate-50 border border-slate-100">
+                    <span className="font-semibold text-slate-800">"Wake Up"</span>
+                    <span className="text-[10px] text-slate-500 font-mono">Open AI</span>
+                  </div>
+                  <div className="flex items-center justify-between p-1.5 rounded bg-slate-50 border border-slate-100">
+                    <span className="font-semibold text-slate-800">"Sleep"</span>
+                    <span className="text-[10px] text-slate-500 font-mono">Orb Mode</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -681,6 +761,29 @@ export default function App() {
         <span>Handsfree • WebGL &amp; WebAudio</span>
         <span className="font-mono text-teal-700 font-semibold">ActiveTab Bound</span>
       </footer>
+
+      {/* Interactive Bottom-Right Corner Drag-Resize Handle */}
+      <div 
+        onMouseDown={(e) => {
+          e.preventDefault();
+          const startX = e.clientX;
+          const startY = e.clientY;
+          const startW = e.currentTarget.parentElement.offsetWidth;
+          const startH = e.currentTarget.parentElement.offsetHeight;
+          const onMouseMove = (moveEvt) => {
+            setCustomWidth(Math.max(360, startW + (moveEvt.clientX - startX)));
+            setCustomHeight(Math.max(500, startH + (moveEvt.clientY - startY)));
+          };
+          const onMouseUp = () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+          };
+          window.addEventListener('mousemove', onMouseMove);
+          window.addEventListener('mouseup', onMouseUp);
+        }}
+        className="resize-handle"
+        title="Drag corner to freely resize window"
+      />
     </div>
   );
 }

@@ -1,0 +1,534 @@
+/* ==========================================================================
+   HANDSFREE AI VOICE AGENT & HOLOGRAPHIC SLEEP ORB STYLES (IMAGE 2 & IMAGE 3)
+   ========================================================================== */
+
+/* 1. HOLOGRAPHIC GLOWING SLEEP ORB (IMAGE 2) */
+#handsfree-sleep-orb-container {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 2147483645;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  user-select: none;
+  cursor: grab;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#handsfree-sleep-orb-container:active {
+  cursor: grabbing;
+}
+
+#handsfree-sleep-orb-container.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.6) translateY(20px);
+}
+
+/* Outer luminous holographic aura */
+.handsfree-orb-wrapper {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: radial-gradient(circle, rgba(15, 23, 42, 0.95) 0%, rgba(2, 6, 23, 0.98) 100%);
+  box-shadow: 
+    0 0 25px rgba(168, 85, 247, 0.55),
+    0 0 50px rgba(6, 182, 212, 0.35),
+    0 8px 32px rgba(0, 0, 0, 0.6);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.handsfree-orb-wrapper:hover {
+  transform: scale(1.08);
+  box-shadow: 
+    0 0 35px rgba(168, 85, 247, 0.75),
+    0 0 65px rgba(6, 182, 212, 0.5),
+    0 12px 36px rgba(0, 0, 0, 0.7);
+}
+
+/* Neon animated gradient ring matching Image 2 */
+.handsfree-orb-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    #3b82f6 0deg,
+    #8b5cf6 70deg,
+    #ec4899 140deg,
+    #f43f5e 200deg,
+    #06b6d4 270deg,
+    #2dd4bf 320deg,
+    #3b82f6 360deg
+  );
+  filter: blur(1.5px);
+  animation: orb-spin 8s linear infinite;
+  opacity: 0.9;
+  z-index: 1;
+}
+
+/* Luminous dotted/dashed corona track */
+.handsfree-orb-dots {
+  position: absolute;
+  inset: 1px;
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, 0.55);
+  box-sizing: border-box;
+  animation: orb-spin-reverse 16s linear infinite;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* 3D Glass Inner Sphere */
+.handsfree-orb-core {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #1e1b4b 0%, #030712 75%);
+  box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.3), inset 0 -4px 10px rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  overflow: hidden;
+}
+
+/* Specular light highlight */
+.handsfree-orb-specular {
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  width: 18px;
+  height: 10px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 100%);
+  transform: rotate(-25deg);
+  pointer-events: none;
+}
+
+/* Satellite Turquoise status pip (Image 3 design) */
+.handsfree-orb-pip {
+  position: absolute;
+  top: -2px;
+  right: 0px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #2dd4bf; /* turquoise */
+  box-shadow: 0 0 10px #2dd4bf, 0 0 4px #ffffff;
+  border: 1.5px solid #0f172a;
+  z-index: 5;
+  animation: orb-pip-pulse 2s infinite ease-in-out;
+}
+
+/* Orb Sleep Toast / Badge */
+.handsfree-orb-toast {
+  position: absolute;
+  bottom: 76px;
+  background: rgba(15, 23, 42, 0.95);
+  color: #2dd4bf;
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: system-ui, -apple-system, sans-serif;
+  white-space: nowrap;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.handsfree-orb-toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 2. FLOATING AI VOICE AGENT WINDOW (IMAGE 3) */
+#handsfree-ai-agent-window {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 460px;
+  max-width: calc(100vw - 32px);
+  z-index: 2147483647;
+  display: flex;
+  flex-direction: column;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: 
+    0 16px 40px -10px rgba(0, 0, 0, 0.7),
+    0 0 25px -5px rgba(13, 148, 136, 0.2);
+  color: #f8fafc;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#handsfree-ai-agent-window.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.85) translateY(30px);
+}
+
+/* Agent Header */
+.handsfree-agent-header {
+  padding: 10px 14px;
+  background: rgba(30, 41, 59, 0.7);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: grab;
+  user-select: none;
+}
+
+.handsfree-agent-header:active {
+  cursor: grabbing;
+}
+
+.handsfree-agent-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.handsfree-header-orb-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #3b82f6, #ec4899, #06b6d4, #3b82f6);
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.6);
+  display: inline-block;
+}
+
+.handsfree-agent-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+.handsfree-agent-status-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(20, 184, 166, 0.15);
+  color: #2dd4bf;
+  border: 1px solid rgba(45, 212, 191, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.handsfree-agent-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.handsfree-header-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.handsfree-header-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+/* Chat Messages Area (Image 3) */
+.handsfree-agent-chat-body {
+  height: 240px;
+  min-height: 180px;
+  max-height: 380px;
+  padding: 14px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.handsfree-agent-chat-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.handsfree-agent-chat-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+/* Message Rows */
+.handsfree-msg-row {
+  display: flex;
+  flex-direction: column;
+  max-width: 85%;
+}
+
+.handsfree-msg-row.agent {
+  align-self: flex-start;
+}
+
+.handsfree-msg-row.user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+/* Message Bubbles */
+.handsfree-msg-bubble {
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.handsfree-msg-row.agent .handsfree-msg-bubble {
+  background: rgba(30, 41, 59, 0.85);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-top-left-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.handsfree-msg-row.user .handsfree-msg-bubble {
+  background: #0d9488; /* turquoise / emerald */
+  color: #ffffff;
+  border-top-right-radius: 4px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35);
+}
+
+.handsfree-msg-time {
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 4px;
+  padding: 0 4px;
+}
+
+/* Command Pill inside Agent response */
+.handsfree-cmd-tag {
+  display: inline-block;
+  background: rgba(45, 212, 191, 0.15);
+  color: #2dd4bf;
+  border: 1px solid rgba(45, 212, 191, 0.25);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: monospace;
+  margin-top: 4px;
+}
+
+/* 3. BOTTOM DOCK BAR (IMAGE 3) */
+.handsfree-agent-dock {
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Mini Holographic Orb in Dock (Image 3) */
+.handsfree-dock-orb {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: radial-gradient(circle, #020617 0%, #1e1b4b 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.45);
+  transition: transform 0.2s ease;
+}
+
+.handsfree-dock-orb:hover {
+  transform: scale(1.08);
+}
+
+.handsfree-dock-orb-ring {
+  position: absolute;
+  inset: -1.5px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #3b82f6, #ec4899, #06b6d4, #2dd4bf, #3b82f6);
+  animation: orb-spin 6s linear infinite;
+  z-index: 1;
+}
+
+.handsfree-dock-orb-core {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #1e1b4b 0%, #030712 90%);
+  z-index: 2;
+  box-shadow: inset 0 1px 3px rgba(255, 255, 255, 0.4);
+}
+
+.handsfree-dock-orb-pip {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #2dd4bf;
+  box-shadow: 0 0 6px #2dd4bf;
+  border: 1px solid #0f172a;
+  z-index: 4;
+}
+
+/* Sound Wave Equalizer Bars (Image 3) */
+.handsfree-soundwave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  flex-shrink: 0;
+  padding: 0 2px;
+}
+
+.handsfree-wave-bar {
+  width: 3px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #2dd4bf 0%, #d946ef 100%);
+  transition: height 0.15s ease;
+}
+
+.handsfree-soundwave.active .handsfree-wave-bar:nth-child(1) { height: 10px; animation: wave-anim 0.8s ease-in-out infinite alternate; }
+.handsfree-soundwave.active .handsfree-wave-bar:nth-child(2) { height: 18px; animation: wave-anim 0.6s ease-in-out infinite 0.1s alternate; }
+.handsfree-soundwave.active .handsfree-wave-bar:nth-child(3) { height: 22px; animation: wave-anim 0.7s ease-in-out infinite 0.2s alternate; }
+.handsfree-soundwave.active .handsfree-wave-bar:nth-child(4) { height: 14px; animation: wave-anim 0.5s ease-in-out infinite 0.15s alternate; }
+.handsfree-soundwave.active .handsfree-wave-bar:nth-child(5) { height: 8px;  animation: wave-anim 0.9s ease-in-out infinite 0.05s alternate; }
+
+.handsfree-soundwave.idle .handsfree-wave-bar {
+  height: 4px;
+}
+
+/* Text / Speech Input */
+.handsfree-dock-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #f8fafc;
+  font-size: 13px;
+  font-family: inherit;
+  padding: 6px 4px;
+  min-width: 80px;
+}
+
+.handsfree-dock-input::placeholder {
+  color: #64748b;
+  font-size: 12.5px;
+}
+
+/* Voice Button (Image 3) with Turquoise Mic Icon */
+.handsfree-dock-voice-btn {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.handsfree-dock-voice-btn:hover {
+  background: rgba(51, 65, 85, 0.9);
+  border-color: rgba(45, 212, 191, 0.4);
+}
+
+.handsfree-dock-voice-btn.active {
+  background: rgba(13, 148, 136, 0.2);
+  border-color: #2dd4bf;
+  color: #2dd4bf;
+}
+
+.handsfree-mic-svg-dock {
+  width: 14px;
+  height: 14px;
+  color: #2dd4bf; /* turquoise */
+  stroke: #2dd4bf;
+}
+
+/* Circular Send Button (Image 3) */
+.handsfree-dock-send-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #0d9488; /* turquoise teal */
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.4);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.handsfree-dock-send-btn:hover {
+  transform: scale(1.05);
+  background: #0f766e;
+}
+
+.handsfree-dock-send-btn:active {
+  transform: scale(0.96);
+}
+
+/* ANIMATIONS */
+@keyframes orb-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes orb-spin-reverse {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes orb-pip-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.35); opacity: 0.8; }
+}
+
+@keyframes wave-anim {
+  0% { transform: scaleY(0.4); }
+  100% { transform: scaleY(1.3); }
+}

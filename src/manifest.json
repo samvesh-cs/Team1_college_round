@@ -17,10 +17,11 @@
       "js": ["src/content/content.js"],
       "css": [
         "src/content/styles/overlay.css",
-        "src/content/styles/voice-overlay.css"
+        "src/content/styles/voice-overlay.css",
+        "src/content/styles/ai-agent.css"
       ],
       "run_at": "document_idle"
     }
   ],
-  "permissions": ["activeTab", "storage"]
+  "permissions": ["activeTab", "storage", "tabs"]
 }

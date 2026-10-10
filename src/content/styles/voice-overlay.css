@@ -1,23 +1,25 @@
 #handsfree-voice-overlay {
   position: fixed;
-  bottom: 20px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(15, 23, 42, 0.9);
+  background: rgba(15, 23, 42, 0.92);
   color: white;
-  padding: 8px 16px;
+  padding: 8px 18px;
   border-radius: 9999px;
   font-family: system-ui, -apple-system, sans-serif;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 8px;
-  z-index: 2147483647; /* Maximum z-index */
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  gap: 10px;
+  z-index: 2147483647;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 16px rgba(13, 148, 136, 0.25);
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 #handsfree-voice-overlay.hidden {
@@ -25,15 +27,37 @@
   transform: translateX(-50%) translateY(20px);
 }
 
-.handsfree-voice-icon {
-  font-size: 16px;
+.handsfree-voice-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.handsfree-mic-svg {
+  width: 17px;
+  height: 17px;
+  color: #2dd4bf; /* turquoise */
+  stroke: #2dd4bf;
+  filter: drop-shadow(0 0 4px rgba(45, 212, 191, 0.4));
+}
+
+.handsfree-mic-svg.dictating {
+  color: #818cf8; /* indigo */
+  stroke: #818cf8;
+}
+
+.handsfree-voice-text {
+  letter-spacing: -0.01em;
+  color: #f1f5f9;
 }
 
 .handsfree-voice-command {
-  color: #34d399; /* emerald-400 */
+  color: #2dd4bf; /* turquoise */
   font-family: monospace;
   font-size: 12px;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-weight: 600;
+  background: rgba(45, 212, 191, 0.15);
+  border: 1px solid rgba(45, 212, 191, 0.3);
+  padding: 2px 7px;
+  border-radius: 6px;
 }
