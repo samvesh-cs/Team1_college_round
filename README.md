@@ -7,6 +7,15 @@ The project is designed as a **Manifest V3 Chrome extension** with a **React + V
 > **Prototype scope:** The initial version targets a virtual cursor inside supported webpages. It does not automatically control the operating-system mouse across all applications. Browser and speech-recognition support can vary.
 
 ---
+> **🤖 AI Context (Current Project Status):** 
+> Phase 0 (Extension Foundation) has been fully implemented.
+> - The project has been scaffolded using Vite, React, and `@crxjs/vite-plugin`.
+> - `manifest.json` is configured for Manifest V3.
+> - The React popup, background worker, and content script are wired up with messaging.
+> - The extension builds successfully via `npm run build`.
+> - **Next up:** Phase 1 (Head tracking / MediaPipe integration).
+
+---
 
 ## Table of contents
 
@@ -967,9 +976,9 @@ Avoid committing `.env` files, credentials, dependency folders, build artifacts 
 
 ### Phase 1 — Extension foundation
 
-- [ ] Valid Manifest V3 extension.
-- [ ] React + Vite popup.
-- [ ] Background/content messaging.
+- [x] Valid Manifest V3 extension.
+- [x] React + Vite popup.
+- [x] Background/content messaging.
 - [ ] Virtual cursor overlay on supported webpages.
 
 ### Phase 2 — Head control
