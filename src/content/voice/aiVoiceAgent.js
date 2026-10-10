@@ -7,7 +7,9 @@ export class AiVoiceAgent {
     this.state = "orb"; // Starts in sleep/orb mode
     this.onCommandSubmit = options.onCommandSubmit || (() => {});
     this.onVoiceToggle = options.onVoiceToggle || (() => {});
+    this.onSpeakingChange = options.onSpeakingChange || (() => {});
     this.isListening = true;
+    this.ttsEnabled = true;
 
     this._createSleepOrb();
     this._createAgentWindow();
@@ -15,7 +17,9 @@ export class AiVoiceAgent {
 
     // Default welcome message in agent window
     this.addAgentMessage(
-      "Handsfree AI Voice Agent is active. Speak navigation commands ('scroll down', 'click', 'search') or ask questions."
+      "Handsfree AI Voice Agent is active. Speak navigation commands ('scroll down', 'click', 'search') or ask questions.",
+      "ready",
+      "Handsfree ready"
     );
   }
 
@@ -104,6 +108,12 @@ export class AiVoiceAgent {
       <!-- Chat History (Visible in State 3: Chat) -->
       <div class="handsfree-agent-chat-body" id="handsfree-chat-body"></div>
 
+      <!-- Real-time Live Reply Floating Pill (Above Dock in Bar Mode) -->
+      <div class="handsfree-dock-reply-pill" id="handsfree-dock-reply-pill">
+        <span class="handsfree-reply-icon" id="handsfree-reply-icon">✓</span>
+        <span class="handsfree-reply-text" id="handsfree-dock-reply-text">Ready</span>
+      </div>
+
       <!-- Dock Input Bar (Visible in States 2 & 3: Image 4 & 1) -->
       <div class="handsfree-agent-dock">
         <!-- Dock Orb (Click to Sleep) -->
@@ -129,6 +139,14 @@ export class AiVoiceAgent {
           id="handsfree-dock-input" 
           placeholder="Speak command or ask Handsfree..." 
         />
+
+        <!-- Audio TTS Speaker Toggle Button -->
+        <button class="handsfree-dock-speaker-btn active" id="handsfree-dock-speaker-btn" title="Toggle AI voice spoken replies (TTS)">
+          <svg class="handsfree-speaker-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+        </button>
 
         <!-- Voice Button (Turquoise Mic Icon) -->
         <button class="handsfree-dock-voice-btn active" id="handsfree-dock-voice-btn" title="Toggle voice listening">
@@ -170,11 +188,15 @@ export class AiVoiceAgent {
     this.dockInput = this.windowElement.querySelector("#handsfree-dock-input");
     this.soundwave = this.windowElement.querySelector("#handsfree-soundwave");
     this.voiceBtn = this.windowElement.querySelector("#handsfree-dock-voice-btn");
+    this.speakerBtn = this.windowElement.querySelector("#handsfree-dock-speaker-btn");
     this.sendBtn = this.windowElement.querySelector("#handsfree-dock-send-btn");
     this.dockOrb = this.windowElement.querySelector("#handsfree-dock-orb");
     this.expandBtn = this.windowElement.querySelector("#handsfree-dock-expand-btn");
     this.expandIcon = this.windowElement.querySelector("#handsfree-expand-icon");
     this.headerStatus = this.windowElement.querySelector("#handsfree-header-status");
+    this.dockReplyPill = this.windowElement.querySelector("#handsfree-dock-reply-pill");
+    this.dockReplyText = this.windowElement.querySelector("#handsfree-dock-reply-text");
+    this.replyIcon = this.windowElement.querySelector("#handsfree-reply-icon");
 
     // State Transition Events
     // Mini orb clicks -> collapse to Sleep Orb (State 1)
@@ -203,7 +225,7 @@ export class AiVoiceAgent {
 
     this.windowElement.querySelector("#handsfree-btn-clear").addEventListener("click", () => {
       this.chatBody.innerHTML = "";
-      this.addAgentMessage("Chat cleared. Ready for your commands.");
+      this.addAgentMessage("Chat cleared. Ready for your commands.", "clear", "Chat cleared");
     });
 
     this.voiceBtn.addEventListener("click", () => {
@@ -211,6 +233,21 @@ export class AiVoiceAgent {
       this.updateVoiceState(this.isListening);
       this.onVoiceToggle(this.isListening);
     });
+
+    if (this.speakerBtn) {
+      this.speakerBtn.addEventListener("click", () => {
+        this.ttsEnabled = !this.ttsEnabled;
+        if (this.ttsEnabled) {
+          this.speakerBtn.classList.add("active");
+          this.speak("Voice replies enabled");
+          this.showDockReply("Voice replies enabled", "success");
+        } else {
+          this.speakerBtn.classList.remove("active");
+          if (window.speechSynthesis) window.speechSynthesis.cancel();
+          this.showDockReply("Voice replies muted", "success");
+        }
+      });
+    }
 
     const submitInput = () => {
       const text = this.dockInput.value.trim();
@@ -333,13 +370,66 @@ export class AiVoiceAgent {
   /* ----------------------------------------------------
      4. REAL-TIME TRANSCRIPTION STREAMING & MESSAGES
   ---------------------------------------------------- */
+  speak(text) {
+    if (!this.ttsEnabled || !window.speechSynthesis) return;
+    try {
+      window.speechSynthesis.cancel();
+      // Clean special characters, ticks, and hashes
+      const clean = text.replace(/[✓*•#]/g, "").replace(/\s+/g, " ").trim();
+      if (!clean) return;
+
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.rate = 1.08; // Natural, crisp response rate
+      utterance.pitch = 1.0;
+      utterance.volume = 0.9;
+
+      if (this.onSpeakingChange) this.onSpeakingChange(true);
+
+      utterance.onend = () => {
+        setTimeout(() => {
+          if (this.onSpeakingChange) this.onSpeakingChange(false);
+        }, 150);
+      };
+
+      utterance.onerror = () => {
+        if (this.onSpeakingChange) this.onSpeakingChange(false);
+      };
+
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {}
+  }
+
+  showDockReply(text, type = "success") {
+    if (!this.dockReplyPill || !this.dockReplyText) return;
+    this.dockReplyText.textContent = text;
+    this.dockReplyPill.className = `handsfree-dock-reply-pill visible ${type}`;
+    if (this.replyIcon) {
+      this.replyIcon.textContent = type === "hearing" ? "🎙" : "✓";
+    }
+
+    if (this._dockReplyTimer) clearTimeout(this._dockReplyTimer);
+    if (type !== "hearing") {
+      this._dockReplyTimer = setTimeout(() => {
+        if (this.dockReplyPill) {
+          this.dockReplyPill.classList.remove("visible");
+        }
+      }, 3500);
+    }
+  }
+
   setInterimText(text) {
     if (!this.dockInput) return;
     if (text) {
-      this.dockInput.placeholder = text;
+      this.dockInput.placeholder = `Hearing: "${text}"...`;
+      this.dockInput.classList.add("hearing");
       this.setEqualizerActive(true);
+      this.showDockReply(`Hearing: "${text}"`, "hearing");
     } else {
       this.dockInput.placeholder = "Speak command or ask Handsfree...";
+      this.dockInput.classList.remove("hearing");
+      if (this.dockReplyPill && this.dockReplyPill.classList.contains("hearing")) {
+        this.dockReplyPill.classList.remove("visible");
+      }
     }
   }
 
@@ -356,7 +446,7 @@ export class AiVoiceAgent {
     this.scrollToBottom();
   }
 
-  addAgentMessage(text, commandTag = null) {
+  addAgentMessage(text, commandTag = null, spokenReply = null) {
     this.setInterimText("");
     const timeStr = this._getCurrentTime();
     const row = document.createElement("div");
@@ -377,10 +467,18 @@ export class AiVoiceAgent {
     this.chatBody.appendChild(row);
     this.scrollToBottom();
 
-    // If in Orb mode, show toast on sleep orb
+    // 1. Real-time Visual Reply in Dock Bar (State 2)
+    const replySummary = commandTag ? `✓ ${commandTag}` : text;
+    this.showDockReply(replySummary, "success");
+
+    // 2. Real-time Toast in Orb Mode (State 1)
     if (this.state === "orb") {
-      this.flashOrbToast(commandTag ? `✓ ${commandTag}` : text);
+      this.flashOrbToast(replySummary);
     }
+
+    // 3. Real-time Audio Spoken Reply (TTS)
+    const toSpeak = spokenReply || (commandTag ? commandTag : text);
+    this.speak(toSpeak);
   }
 
   setEqualizerActive(isActive) {

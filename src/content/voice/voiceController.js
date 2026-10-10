@@ -16,6 +16,7 @@ export class VoiceController {
     // UI Elements
     this.overlay = new VoiceOverlay();
     this.targetManager = new TargetManager();
+    this.isSpeaking = false;
     this.aiAgent = new AiVoiceAgent({
       onCommandSubmit: (text) => this.handleExternalInput(text),
       onVoiceToggle: (isListening) => {
@@ -24,6 +25,9 @@ export class VoiceController {
         } else {
           this.stop();
         }
+      },
+      onSpeakingChange: (isSpeaking) => {
+        this.isSpeaking = isSpeaking;
       }
     });
 
@@ -67,7 +71,7 @@ export class VoiceController {
     };
 
     this.recognition.onresult = (event) => {
-      if (this._isAborting) return;
+      if (this._isAborting || this.isSpeaking) return;
 
       let interimTranscript = "";
 
@@ -329,42 +333,42 @@ export class VoiceController {
       case "SCROLL_DOWN":
         window.scrollBy({ top: scrollStep, behavior: "smooth" });
         this.overlay.flashCommand("scroll down");
-        this.aiAgent.addAgentMessage(`Scrolled down ${scrollStep}px`, "scroll down");
+        this.aiAgent.addAgentMessage(`Scrolled down ${scrollStep}px`, "scroll down", "Scrolled down");
         break;
 
       case "SCROLL_UP":
         window.scrollBy({ top: -scrollStep, behavior: "smooth" });
         this.overlay.flashCommand("scroll up");
-        this.aiAgent.addAgentMessage(`Scrolled up ${scrollStep}px`, "scroll up");
+        this.aiAgent.addAgentMessage(`Scrolled up ${scrollStep}px`, "scroll up", "Scrolled up");
         break;
 
       case "GO_TOP":
         window.scrollTo({ top: 0, behavior: "smooth" });
         this.overlay.flashCommand("top");
-        this.aiAgent.addAgentMessage("Scrolled to top of page", "go to top");
+        this.aiAgent.addAgentMessage("Scrolled to top of page", "go to top", "Top of page");
         break;
 
       case "GO_BOTTOM":
         window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
         this.overlay.flashCommand("bottom");
-        this.aiAgent.addAgentMessage("Scrolled to bottom of page", "go to bottom");
+        this.aiAgent.addAgentMessage("Scrolled to bottom of page", "go to bottom", "Bottom of page");
         break;
 
       case "GO_BACK":
         this.overlay.flashCommand("go back");
-        this.aiAgent.addAgentMessage("Navigating back in browser history", "back");
+        this.aiAgent.addAgentMessage("Navigating back in browser history", "back", "Going back");
         setTimeout(() => window.history.back(), 150);
         break;
 
       case "GO_FORWARD":
         this.overlay.flashCommand("go forward");
-        this.aiAgent.addAgentMessage("Navigating forward in browser history", "forward");
+        this.aiAgent.addAgentMessage("Navigating forward in browser history", "forward", "Going forward");
         setTimeout(() => window.history.forward(), 150);
         break;
 
       case "RELOAD":
         this.overlay.flashCommand("reload");
-        this.aiAgent.addAgentMessage("Reloading page...", "reload");
+        this.aiAgent.addAgentMessage("Reloading page...", "reload", "Reloading page");
         setTimeout(() => window.location.reload(), 200);
         break;
 
@@ -373,32 +377,33 @@ export class VoiceController {
         this.overlay.flashCommand("click", clicked);
         this.aiAgent.addAgentMessage(
           clicked ? "Simulated click at cursor target" : "No interactive element found at cursor",
-          "click"
+          "click",
+          clicked ? "Clicked" : "No element found"
         );
         break;
 
       case "DOUBLE_CLICK":
         const dblClicked = this._clickCursorTarget(true);
         this.overlay.flashCommand("double click", dblClicked);
-        this.aiAgent.addAgentMessage("Simulated double-click at cursor target", "double click");
+        this.aiAgent.addAgentMessage("Simulated double-click at cursor target", "double click", "Double clicked");
         break;
 
       case "PRESS_ENTER":
         this._pressEnter();
         this.overlay.flashCommand("press enter");
-        this.aiAgent.addAgentMessage("Pressed Enter key on active element", "enter");
+        this.aiAgent.addAgentMessage("Pressed Enter key on active element", "enter", "Enter");
         break;
 
       case "PRESS_TAB":
         this._pressTab();
         this.overlay.flashCommand("tab");
-        this.aiAgent.addAgentMessage("Advanced focus to next field", "tab");
+        this.aiAgent.addAgentMessage("Advanced focus to next field", "tab", "Tab");
         break;
 
       case "PRESS_ESCAPE":
         if (document.activeElement) document.activeElement.blur();
         this.overlay.flashCommand("escape");
-        this.aiAgent.addAgentMessage("Pressed Escape / blurred focus", "escape");
+        this.aiAgent.addAgentMessage("Pressed Escape / blurred focus", "escape", "Escape");
         break;
 
       case "SEARCH_PAGE":
@@ -412,25 +417,25 @@ export class VoiceController {
       case "START_DICTATION":
         this.setMode("dictation");
         this.overlay.flashCommand("start dictation");
-        this.aiAgent.addAgentMessage("Dictation mode active. Speak naturally to fill fields. Say 'stop dictation' to exit.", "start dictation");
+        this.aiAgent.addAgentMessage("Dictation mode active. Speak naturally to fill fields. Say 'stop dictation' to exit.", "start dictation", "Dictation active");
         break;
 
       case "STOP_DICTATION":
         this.setMode("command");
         this.overlay.flashCommand("stop dictation");
-        this.aiAgent.addAgentMessage("Switched back to command mode.", "stop dictation");
+        this.aiAgent.addAgentMessage("Switched back to command mode.", "stop dictation", "Command mode");
         break;
 
       case "SHOW_TARGETS":
         const count = this.targetManager.showTargets();
         this.overlay.flashCommand(`targets: ${count}`);
-        this.aiAgent.addAgentMessage(`Generated ${count} numbered click targets. Say 'click [number]' to select.`, "show targets");
+        this.aiAgent.addAgentMessage(`Generated ${count} numbered click targets. Say 'click [number]' to select.`, "show targets", "Targets visible");
         break;
 
       case "HIDE_TARGETS":
         this.targetManager.hideTargets();
         this.overlay.flashCommand("targets hidden");
-        this.aiAgent.addAgentMessage("Numbered target badges hidden.", "hide targets");
+        this.aiAgent.addAgentMessage("Numbered target badges hidden.", "hide targets", "Targets hidden");
         break;
 
       case "CLICK_TARGET":
@@ -439,7 +444,8 @@ export class VoiceController {
         this.overlay.flashCommand(`click #${targetNum}`, success);
         this.aiAgent.addAgentMessage(
           success ? `Clicked numbered target #${targetNum}` : `Target #${targetNum} not found. Say 'show targets' to re-index.`,
-          `click ${targetNum}`
+          `click ${targetNum}`,
+          success ? `Target ${targetNum} clicked` : `Target ${targetNum} not found`
         );
         break;
 
@@ -447,21 +453,25 @@ export class VoiceController {
       case "WAKE_UP":
         this.aiAgent.toBar();
         this.overlay.flashCommand("bar opened");
+        this.aiAgent.addAgentMessage("Handsfree AI Agent is awake and listening.", "wake up", "Handsfree is awake");
         break;
 
       case "EXPAND_MORE":
         this.aiAgent.toChat();
         this.overlay.flashCommand("chat expanded");
+        this.aiAgent.addAgentMessage("Expanded full chat history window.", "expand more", "Chat opened");
         break;
 
       case "COLLAPSE_CHAT":
         this.aiAgent.toBar();
         this.overlay.flashCommand("chat collapsed");
+        this.aiAgent.addAgentMessage("Collapsed back to slim dock bar.", "collapse chat", "Docked to bar");
         break;
 
       case "SLEEP":
         this.aiAgent.toOrb();
         this.overlay.flashCommand("sleep mode");
+        this.aiAgent.addAgentMessage("Handsfree entered sleep mode. Say 'wake up' to activate.", "sleep", "Going to sleep");
         break;
 
       case "PAUSE":
@@ -470,13 +480,13 @@ export class VoiceController {
           try { this.recognition.stop(); } catch (e) {}
         }
         this.overlay.flashCommand("paused");
-        this.aiAgent.addAgentMessage("Voice listening paused. Say 'resume' or click the mic button to reactivate.", "pause");
+        this.aiAgent.addAgentMessage("Voice listening paused. Say 'resume' or click the mic button to reactivate.", "pause", "Listening paused");
         break;
 
       case "RESUME":
         this.start();
         this.overlay.flashCommand("resumed");
-        this.aiAgent.addAgentMessage("Voice listening resumed.", "resume");
+        this.aiAgent.addAgentMessage("Voice listening resumed.", "resume", "Listening resumed");
         break;
 
       case "HELP":
@@ -488,7 +498,8 @@ export class VoiceController {
           "• Navigation: 'back', 'forward', 'reload'\n" +
           "• Clicking: 'click', 'double click', 'show targets', 'click [number]'\n" +
           "• 3-State Controls: 'wake up' (open bar), 'expand more' (open chat), 'collapse chat' (bar mode), 'sleep' (orb mode)",
-          "help"
+          "help",
+          "Here are available commands"
         );
         break;
 

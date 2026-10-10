@@ -601,3 +601,97 @@
   0% { transform: scaleY(0.4); }
   100% { transform: scaleY(1.3); }
 }
+
+/* 4. REAL-TIME DOCK REPLY PILL & TTS SPEAKER BUTTON */
+.handsfree-dock-reply-pill {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  border-radius: 9999px;
+  padding: 6px 16px;
+  color: #2dd4bf;
+  font-size: 12.5px;
+  font-weight: 600;
+  box-shadow: 
+    0 10px 25px rgba(0, 0, 0, 0.6),
+    0 0 16px rgba(13, 148, 136, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 2147483647;
+}
+
+.handsfree-dock-reply-pill.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.handsfree-dock-reply-pill.hearing {
+  border-color: rgba(6, 182, 212, 0.55);
+  color: #38bdf8;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), 0 0 16px rgba(6, 182, 212, 0.4);
+}
+
+.handsfree-dock-reply-pill.success {
+  border-color: rgba(45, 212, 191, 0.55);
+  color: #2dd4bf;
+}
+
+.handsfree-reply-icon {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.handsfree-dock-speaker-btn {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.handsfree-dock-speaker-btn:hover {
+  background: rgba(51, 65, 85, 0.9);
+  color: #2dd4bf;
+}
+
+.handsfree-dock-speaker-btn.active {
+  background: rgba(13, 148, 136, 0.2);
+  border-color: rgba(45, 212, 191, 0.4);
+  color: #2dd4bf;
+}
+
+.handsfree-speaker-svg {
+  width: 13px;
+  height: 13px;
+}
+
+.handsfree-dock-input.hearing {
+  color: #38bdf8;
+}
+
+.handsfree-dock-input.hearing::placeholder {
+  color: #38bdf8;
+  font-weight: 500;
+}
+
