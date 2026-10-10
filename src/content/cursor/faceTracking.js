@@ -234,6 +234,29 @@ export function getMediaStream() {
   return mediaStream;
 }
 
+export function getVideoElement() {
+  return videoElement;
+}
+
+let offscreenCanvas = null;
+let offscreenCtx = null;
+
+export function captureFrameDataUrl(quality = 0.5) {
+  if (!videoElement || videoElement.readyState < 2) return null;
+  if (!offscreenCanvas) {
+    offscreenCanvas = document.createElement("canvas");
+    offscreenCanvas.width = 320;
+    offscreenCanvas.height = 240;
+    offscreenCtx = offscreenCanvas.getContext("2d");
+  }
+  try {
+    offscreenCtx.drawImage(videoElement, 0, 0, 320, 240);
+    return offscreenCanvas.toDataURL("image/jpeg", quality);
+  } catch (e) {
+    return null;
+  }
+}
+
 /**
  * Returns whether tracking is currently active.
  * @returns {boolean}
