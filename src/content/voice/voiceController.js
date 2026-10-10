@@ -58,13 +58,17 @@ export class VoiceController {
     this.recognition.continuous = true;
     this.recognition.interimResults = true; // Real-time streaming for near-zero latency
     this.recognition.lang = "en-US";
+    this._isAborting = false;
 
     this.recognition.onstart = () => {
+      this._isAborting = false;
       this.aiAgent.updateVoiceState(true);
       this.aiAgent.setEqualizerActive(true);
     };
 
     this.recognition.onresult = (event) => {
+      if (this._isAborting) return;
+
       let interimTranscript = "";
 
       for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -72,35 +76,43 @@ export class VoiceController {
         const transcript = result[0].transcript.trim();
 
         if (result.isFinal) {
-          this._handleFinalTranscript(transcript);
+          const executed = this._processTranscript(transcript, false);
+          if (executed) return;
         } else {
           interimTranscript += transcript + " ";
-          this._handleInterimTranscript(transcript);
+          const executed = this._processTranscript(transcript, true);
+          if (executed) {
+            // Command recognized and executed immediately on partial token!
+            return;
+          }
         }
       }
 
-      if (interimTranscript) {
+      if (interimTranscript && !this._isAborting) {
         this.aiAgent.setInterimText(interimTranscript.trim());
       }
     };
 
     this.recognition.onend = () => {
+      this._isAborting = false;
       if (this.enabled) {
-        setTimeout(() => {
-          if (this.enabled && this.recognition) {
-            try {
-              this.recognition.start();
-            } catch (e) {}
-          }
-        }, 120);
+        // Immediately invoke recognition.start() inside onend handler to wipe buffer latency
+        try {
+          this.recognition.start();
+        } catch (e) {
+          // If Chrome's audio thread is finalizing, retry with micro-backoff
+          this._safeRestart();
+        }
       } else {
         this.aiAgent.setEqualizerActive(false);
       }
     };
     
     this.recognition.onerror = (event) => {
-      if (event.error === "no-speech") {
-        return; // Normal timeout when user is silent
+      // "aborted" is expected when we intentionally call recognition.abort() to wipe trailing buffer
+      // "no-speech" is normal pause
+      if (event.error === "aborted" || event.error === "no-speech") {
+        return;
       }
       console.warn("[Handsfree] Speech recognition error:", event.error);
       if (event.error === "not-allowed") {
@@ -108,6 +120,62 @@ export class VoiceController {
         this.aiAgent.addAgentMessage("Microphone permission was denied. Please allow microphone access in Chrome.");
       }
     };
+  }
+
+  /* ----------------------------------------------------
+     WIPE AUDIO BUFFER & RESTART FRESH SESSION
+  ---------------------------------------------------- */
+  _abortAndFlush() {
+    if (!this.enabled || !this.recognition) return;
+    try {
+      this._isAborting = true;
+      // Immediately wipe internal audio buffer so cloud server stops processing trailing syllables
+      this.recognition.abort();
+    } catch (e) {
+      this._safeRestart();
+    }
+  }
+
+  _safeRestart() {
+    if (!this.enabled) return;
+    if (this._restartTimer) clearTimeout(this._restartTimer);
+
+    const tryStart = (retries = 3, delay = 20) => {
+      this._restartTimer = setTimeout(() => {
+        if (!this.enabled) return;
+        this._isAborting = false;
+        try {
+          this.recognition.start();
+        } catch (err) {
+          if (retries > 0) {
+            tryStart(retries - 1, delay * 2);
+          } else {
+            // Re-instantiate recognition to clear any stuck native state
+            this._recreateRecognition();
+          }
+        }
+      }, delay);
+    };
+
+    tryStart();
+  }
+
+  _recreateRecognition() {
+    if (this.recognition) {
+      try {
+        this.recognition.onstart = null;
+        this.recognition.onresult = null;
+        this.recognition.onend = null;
+        this.recognition.onerror = null;
+        this.recognition.abort();
+      } catch (e) {}
+    }
+    this._initSpeechRecognition();
+    if (this.enabled && this.recognition) {
+      try {
+        this.recognition.start();
+      } catch (e) {}
+    }
   }
 
   start(targetState = "bar") {
@@ -163,83 +231,94 @@ export class VoiceController {
   }
 
   handleExternalInput(text) {
-    this._handleFinalTranscript(text);
+    this._processTranscript(text, false);
   }
 
   /* ----------------------------------------------------
-     FAST-PATH EXECUTION ON INTERIM RESULTS (< 100ms)
+     RAW PARTIAL TOKENS STREAM PROCESSOR (< 100ms LATENCY)
+     WIPES TRAILING AUDIO BUFFER ON INSTANT COMMAND MATCH
   ---------------------------------------------------- */
-  _handleInterimTranscript(interimText) {
-    if (this.mode !== "command") return;
-
-    const trimmed = interimText.trim();
-    if (!trimmed) return;
-
-    const command = parseCommand(trimmed);
-    const fastEligible = [
-      "SCROLL_DOWN", "SCROLL_UP", "GO_TOP", "GO_BOTTOM",
-      "GO_BACK", "GO_FORWARD", "CLICK", "DOUBLE_CLICK", "CLICK_TARGET"
-    ];
-
-    const now = Date.now();
-    if (fastEligible.includes(command.type)) {
-      if (command.type === "CLICK_TARGET") {
-        // Fast-path click numbered target on first breath
-        if (now - this.lastFastCommandTime > 600 || this.lastFastTargetPayload !== command.payload) {
-          this.lastFastCommand = command.type;
-          this.lastFastTargetPayload = command.payload;
-          this.lastFastCommandTime = now;
-          this._executeCommand(command, trimmed, true);
-        }
-      } else {
-        // Cooldown check (prevent repeated scroll on single breath)
-        if (now - this.lastFastCommandTime > 750 || this.lastFastCommand !== command.type) {
-          this.lastFastCommand = command.type;
-          this.lastFastCommandTime = now;
-          this._executeCommand(command, trimmed, true);
-        }
-      }
-    }
-  }
-
-  /* ----------------------------------------------------
-     FINAL TRANSCRIPT EXECUTION
-  ---------------------------------------------------- */
-  _handleFinalTranscript(transcript) {
+  _processTranscript(transcript, isInterim = false) {
+    if (this._isAborting) return false;
     const trimmed = transcript.trim();
-    if (!trimmed) return;
+    if (!trimmed) return false;
 
-    this.aiAgent.setInterimText("");
-    this.aiAgent.addUserMessage(trimmed);
-
-    if (this.mode === "command") {
-      const command = parseCommand(trimmed);
-
-      // If already executed by fast-path within 1.2 seconds, avoid re-executing
-      const now = Date.now();
-      if (
-        (this.lastFastCommand === command.type ||
-          (command.type === "CLICK_TARGET" && this.lastFastTargetPayload === command.payload)) &&
-        now - this.lastFastCommandTime < 1200
-      ) {
-        this.lastFastCommand = null;
-        this.lastFastTargetPayload = null;
-        return;
-      }
-
-      this._executeCommand(command, trimmed, false);
-    } else if (this.mode === "dictation") {
+    // 1. Dictation Mode
+    if (this.mode === "dictation") {
       const command = parseCommand(trimmed);
       if (command.type === "STOP_DICTATION") {
         this.setMode("command");
         this.overlay.flashCommand("stop dictation");
         this.aiAgent.addAgentMessage("Dictation mode stopped. Switched back to command mode.", "stop dictation");
-        return;
+        this._abortAndFlush();
+        return true;
       }
-
-      this._insertDictation(trimmed);
-      this.aiAgent.addAgentMessage(`Dictated: "${trimmed}"`, "dictate");
+      if (!isInterim) {
+        this._insertDictation(trimmed);
+        this.aiAgent.addAgentMessage(`Dictated: "${trimmed}"`, "dictate");
+        this._abortAndFlush();
+      }
+      return false;
     }
+
+    // 2. Command Mode Parsing
+    const command = parseCommand(trimmed);
+    if (command.type === "EMPTY") return false;
+
+    // Conversational AI Assistant Query
+    if (command.type === "AI_QUERY") {
+      if (!isInterim) {
+        this.aiAgent.setInterimText("");
+        this.aiAgent.addUserMessage(trimmed);
+        this._executeCommand(command, trimmed, false);
+        this._abortAndFlush();
+        return true;
+      }
+      return false;
+    }
+
+    // 3. Instant Single-Intent Commands
+    // Execute IMMEDIATELY on the very first interim token (< 100ms) without waiting for silence!
+    // Note: bare "CLICK" waits for phrase completion so it does not preempt "click 4" or "click target".
+    const instantCommands = [
+      "SCROLL_DOWN", "SCROLL_UP", "GO_TOP", "GO_BOTTOM",
+      "GO_BACK", "GO_FORWARD", "RELOAD",
+      "DOUBLE_CLICK", "CLICK_TARGET",
+      "PRESS_ENTER", "PRESS_TAB", "PRESS_ESCAPE",
+      "SHOW_TARGETS", "HIDE_TARGETS",
+      "WAKE_UP", "EXPAND_MORE", "COLLAPSE_CHAT", "SLEEP",
+      "PAUSE", "RESUME", "HELP", "START_DICTATION"
+    ];
+
+    const isInstant = instantCommands.includes(command.type);
+
+    if (isInterim && !isInstant) {
+      // Multi-word commands (such as "search [query]" or "type [text]" or bare "click") wait for the full sentence
+      return false;
+    }
+
+    // Debounce to prevent duplicate executions across micro audio frames
+    const now = Date.now();
+    if (
+      now - this.lastFastCommandTime < 350 &&
+      this.lastFastCommand === command.type &&
+      this.lastFastTargetPayload === command.payload
+    ) {
+      return false;
+    }
+
+    this.lastFastCommand = command.type;
+    this.lastFastTargetPayload = command.payload;
+    this.lastFastCommandTime = now;
+
+    // Execute command immediately on raw partial token!
+    this.aiAgent.setInterimText("");
+    this.aiAgent.addUserMessage(trimmed);
+    this._executeCommand(command, trimmed, isInterim);
+
+    // Call recognition.abort() immediately to wipe trailing audio buffer and silence lag!
+    this._abortAndFlush();
+    return true;
   }
 
   _executeCommand(command, rawTranscript, isFastPath = false) {
@@ -250,36 +329,36 @@ export class VoiceController {
       case "SCROLL_DOWN":
         window.scrollBy({ top: scrollStep, behavior: "smooth" });
         this.overlay.flashCommand("scroll down");
-        if (!isFastPath) this.aiAgent.addAgentMessage(`Scrolled down ${scrollStep}px`, "scroll down");
+        this.aiAgent.addAgentMessage(`Scrolled down ${scrollStep}px`, "scroll down");
         break;
 
       case "SCROLL_UP":
         window.scrollBy({ top: -scrollStep, behavior: "smooth" });
         this.overlay.flashCommand("scroll up");
-        if (!isFastPath) this.aiAgent.addAgentMessage(`Scrolled up ${scrollStep}px`, "scroll up");
+        this.aiAgent.addAgentMessage(`Scrolled up ${scrollStep}px`, "scroll up");
         break;
 
       case "GO_TOP":
         window.scrollTo({ top: 0, behavior: "smooth" });
         this.overlay.flashCommand("top");
-        if (!isFastPath) this.aiAgent.addAgentMessage("Scrolled to top of page", "go to top");
+        this.aiAgent.addAgentMessage("Scrolled to top of page", "go to top");
         break;
 
       case "GO_BOTTOM":
         window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
         this.overlay.flashCommand("bottom");
-        if (!isFastPath) this.aiAgent.addAgentMessage("Scrolled to bottom of page", "go to bottom");
+        this.aiAgent.addAgentMessage("Scrolled to bottom of page", "go to bottom");
         break;
 
       case "GO_BACK":
         this.overlay.flashCommand("go back");
-        if (!isFastPath) this.aiAgent.addAgentMessage("Navigating back in browser history", "back");
+        this.aiAgent.addAgentMessage("Navigating back in browser history", "back");
         setTimeout(() => window.history.back(), 150);
         break;
 
       case "GO_FORWARD":
         this.overlay.flashCommand("go forward");
-        if (!isFastPath) this.aiAgent.addAgentMessage("Navigating forward in browser history", "forward");
+        this.aiAgent.addAgentMessage("Navigating forward in browser history", "forward");
         setTimeout(() => window.history.forward(), 150);
         break;
 
@@ -292,18 +371,16 @@ export class VoiceController {
       case "CLICK":
         const clicked = this._clickCursorTarget();
         this.overlay.flashCommand("click", clicked);
-        if (!isFastPath) {
-          this.aiAgent.addAgentMessage(
-            clicked ? "Simulated click at cursor target" : "No interactive element found at cursor",
-            "click"
-          );
-        }
+        this.aiAgent.addAgentMessage(
+          clicked ? "Simulated click at cursor target" : "No interactive element found at cursor",
+          "click"
+        );
         break;
 
       case "DOUBLE_CLICK":
         const dblClicked = this._clickCursorTarget(true);
         this.overlay.flashCommand("double click", dblClicked);
-        if (!isFastPath) this.aiAgent.addAgentMessage("Simulated double-click at cursor target", "double click");
+        this.aiAgent.addAgentMessage("Simulated double-click at cursor target", "double click");
         break;
 
       case "PRESS_ENTER":

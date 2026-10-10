@@ -1,8 +1,59 @@
+const WORD_TO_NUMBER = {
+  zero: 0,
+  one: 1, won: 1,
+  two: 2, to: 2, too: 2,
+  three: 3, tree: 3,
+  four: 4, for: 4, fore: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8, ate: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
+  fifteen: 15,
+  sixteen: 16,
+  seventeen: 17,
+  eighteen: 18,
+  nineteen: 19,
+  twenty: 20,
+  "twenty one": 21, "twenty-one": 21,
+  "twenty two": 22, "twenty-two": 22,
+  "twenty three": 23, "twenty-three": 23,
+  "twenty four": 24, "twenty-four": 24,
+  "twenty five": 25, "twenty-five": 25,
+  "twenty six": 26, "twenty-six": 26,
+  "twenty seven": 27, "twenty-seven": 27,
+  "twenty eight": 28, "twenty-eight": 28,
+  "twenty nine": 29, "twenty-nine": 29,
+  thirty: 30,
+  "thirty one": 31, "thirty-one": 31,
+  "thirty two": 32, "thirty-two": 32,
+  "thirty three": 33, "thirty-three": 33,
+  "thirty four": 34, "thirty-four": 34,
+  "thirty five": 35, "thirty-five": 35,
+  "thirty six": 36, "thirty-six": 36,
+  "thirty seven": 37, "thirty-seven": 37,
+  "thirty eight": 38, "thirty-eight": 38,
+  "thirty nine": 39, "thirty-nine": 39,
+  forty: 40,
+  "forty one": 41, "forty-one": 41,
+  "forty two": 42, "forty-two": 42,
+  "forty three": 43, "forty-three": 43,
+  "forty four": 44, "forty-four": 44,
+  "forty five": 45, "forty-five": 45,
+  fifty: 50,
+  sixty: 60,
+};
+
 // Enhanced Voice Command Parser with 3-state assistant transitions, fast-path parsing, and robust search
 const COMMANDS = [
   // Page Scrolling (Fast-path eligible)
-  { phrases: ["scroll down", "page down", "go down", "scroll downward"], type: "SCROLL_DOWN" },
-  { phrases: ["scroll up", "page up", "go up", "scroll upward"], type: "SCROLL_UP" },
+  { phrases: ["scroll down", "page down", "go down", "scroll downward", "down"], type: "SCROLL_DOWN" },
+  { phrases: ["scroll up", "page up", "go up", "scroll upward", "up"], type: "SCROLL_UP" },
   { phrases: ["go to top", "scroll to top", "scroll top", "page top", "top", "home"], type: "GO_TOP" },
   { phrases: ["go to bottom", "scroll to bottom", "scroll bottom", "page bottom", "bottom", "end"], type: "GO_BOTTOM" },
 
@@ -63,39 +114,16 @@ export function parseCommand(rawTranscript) {
   normalized = normalized.replace(/^search([a-z])/i, "search $1");
   normalized = normalized.replace(/^click([0-9])/i, "click $1");
 
-const WORD_TO_NUMBER = {
-  zero: 0,
-  one: 1, won: 1,
-  two: 2, to: 2, too: 2,
-  three: 3, tree: 3,
-  four: 4, for: 4, fore: 4,
-  five: 5,
-  six: 6,
-  seven: 7,
-  eight: 8, ate: 8,
-  nine: 9,
-  ten: 10,
-  eleven: 11,
-  twelve: 12,
-  thirteen: 13,
-  fourteen: 14,
-  fifteen: 15,
-  sixteen: 16,
-  seventeen: 17,
-  eighteen: 18,
-  nineteen: 19,
-  twenty: 20,
-};
-
-  // 1. Direct Target click by digit or number word: "4", "four", "for", "click 4", "click four", "target 2", "select 3", "#3"
-  const clickDigitMatch = normalized.match(/^(?:click|target|press|number|choose|select)?\s*#?\s*(\d+)$/);
+  // 1. Direct Target click by digit or number word:
+  // e.g. "4", "four", "for", "click 4", "click four", "click on 4", "target 2", "select 3", "#3", "badge 4"
+  const clickDigitMatch = normalized.match(/^(?:click\s+on|click|target|press|number|choose|select|badge|button)?\s*(?:number)?\s*#?\s*(\d+)$/);
   if (clickDigitMatch) {
     return { type: "CLICK_TARGET", payload: parseInt(clickDigitMatch[1], 10), raw: rawTranscript };
   }
 
-  const wordNumberMatch = normalized.match(/^(?:click|target|press|number|choose|select)?\s*#?\s*([a-z]+)$/);
-  if (wordNumberMatch && WORD_TO_NUMBER[wordNumberMatch[1]] !== undefined) {
-    return { type: "CLICK_TARGET", payload: WORD_TO_NUMBER[wordNumberMatch[1]], raw: rawTranscript };
+  const wordNumberMatch = normalized.match(/^(?:click\s+on|click|target|press|number|choose|select|badge|button)?\s*(?:number)?\s*#?\s*([a-z\s-]+)$/);
+  if (wordNumberMatch && WORD_TO_NUMBER[wordNumberMatch[1].trim()] !== undefined) {
+    return { type: "CLICK_TARGET", payload: WORD_TO_NUMBER[wordNumberMatch[1].trim()], raw: rawTranscript };
   }
 
   // 2. Direct Search / Google command: "search [query]", "google [query]", "find [query]"
