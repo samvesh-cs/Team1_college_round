@@ -86,15 +86,22 @@ export class VoiceController {
 
     this.recognition.onend = () => {
       if (this.enabled) {
-        try {
-          this.recognition.start();
-        } catch (e) {}
+        setTimeout(() => {
+          if (this.enabled && this.recognition) {
+            try {
+              this.recognition.start();
+            } catch (e) {}
+          }
+        }, 120);
       } else {
         this.aiAgent.setEqualizerActive(false);
       }
     };
     
     this.recognition.onerror = (event) => {
+      if (event.error === "no-speech") {
+        return; // Normal timeout when user is silent
+      }
       console.warn("[Handsfree] Speech recognition error:", event.error);
       if (event.error === "not-allowed") {
         this.overlay.flashCommand("Mic permission denied", false);
@@ -103,11 +110,19 @@ export class VoiceController {
     };
   }
 
-  start() {
+  start(targetState = "bar") {
     this.enabled = true;
     this.mode = "command";
     this.overlay.show(this.mode);
     this.aiAgent.updateVoiceState(true);
+
+    if (targetState === "chat") {
+      this.aiAgent.toChat();
+    } else if (targetState === "orb") {
+      this.aiAgent.toOrb();
+    } else {
+      this.aiAgent.toBar();
+    }
 
     if (this.recognition) {
       try {
@@ -125,6 +140,7 @@ export class VoiceController {
     }
     this.overlay.hide();
     this.aiAgent.updateVoiceState(false);
+    this.aiAgent.toOrb();
   }
 
   setMode(newMode) {

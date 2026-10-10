@@ -216,6 +216,14 @@ export class AiVoiceAgent {
     });
   }
 
+  _persistState(state) {
+    try {
+      if (typeof chrome !== "undefined" && chrome.storage?.local) {
+        chrome.storage.local.set({ agentState: state });
+      }
+    } catch (e) {}
+  }
+
   /* ----------------------------------------------------
      3. 3-STATE TRANSITIONS
   ---------------------------------------------------- */
@@ -224,6 +232,7 @@ export class AiVoiceAgent {
     this.state = "orb";
     this.windowElement.classList.add("hidden");
     this.orbContainer.classList.remove("hidden");
+    this._persistState("orb");
   }
 
   // State 2: Slim Floating Pill Dock Bar (Image 4)
@@ -237,6 +246,7 @@ export class AiVoiceAgent {
     // Chevron points UP (ready to expand to chat)
     this.expandIcon.innerHTML = `<polyline points="18 15 12 9 6 15"></polyline>`;
     this.expandBtn.title = "Expand chat history (or say 'expand more')";
+    this._persistState("bar");
   }
 
   // State 3: Full Expanded Chat History Window (Image 1)
@@ -251,6 +261,7 @@ export class AiVoiceAgent {
     this.expandIcon.innerHTML = `<polyline points="6 9 12 15 18 9"></polyline>`;
     this.expandBtn.title = "Collapse to dock bar (or say 'collapse')";
     this.scrollToBottom();
+    this._persistState("chat");
   }
 
   /* ----------------------------------------------------

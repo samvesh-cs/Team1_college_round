@@ -25,15 +25,24 @@
   }
 }
 
-html, body {
-  width: 390px;
-  min-height: 580px;
+html {
   margin: 0;
   padding: 0;
-  overflow-x: hidden;
+  box-sizing: border-box;
+  background-color: transparent;
+  border-radius: 18px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
   background-color: #f8fafc;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   box-sizing: border-box;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 12px 30px -4px rgba(15, 23, 42, 0.15);
+  transition: width 0.15s ease, height 0.15s ease;
 }
 
 /* Full Tab / Standalone Browser Window Mode */
@@ -46,6 +55,7 @@ body.tab-view {
   justify-content: center;
   align-items: stretch;
   overflow-y: auto;
+  border-radius: 0;
 }
 
 body.tab-view #root {
@@ -57,7 +67,7 @@ body.tab-view #root {
 
 #root {
   width: 100%;
-  min-height: 580px;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -90,9 +100,9 @@ body.tab-view #root {
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 14px;
-  height: 14px;
-  cursor: se-resize;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
   z-index: 50;
   opacity: 0.45;
   transition: opacity 0.2s;
@@ -107,8 +117,8 @@ body.tab-view #root {
   position: absolute;
   right: 3px;
   bottom: 3px;
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-right: 2px solid #0d9488;
   border-bottom: 2px solid #0d9488;
 }
