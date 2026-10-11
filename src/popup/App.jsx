@@ -113,7 +113,7 @@ function StatsPanel({ sessionStats, statsLoading, statsResetting, setStatsResett
               icon={<svg className="w-3 h-3 text-teal-700" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" strokeLinecap="round"/></svg>}
             />
             <MetricCard
-              label="Dwell Clicks"
+              label="Clicks"
               value={s.dwellClicks}
               colorClass="bg-cyan-100"
               icon={<svg className="w-3 h-3 text-cyan-700" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
@@ -1021,23 +1021,37 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* Toggle 3: Auto-Click / IntentLock */}
+                  {/* Toggle 3: Click Mode (Voice-Only vs Auto Dwell) */}
                   <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/90 hover:border-slate-300 transition-all shadow-xs">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200 shrink-0">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <circle cx="12" cy="12" r="10"></circle>
-                          <polyline points="12 6 12 12 16 14"></polyline>
-                        </svg>
+                      <div className={`w-7 h-7 rounded-lg ${intentLockEnabled ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'} flex items-center justify-center border shrink-0`}>
+                        {intentLockEnabled ? (
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                          </svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" strokeLinecap="round" strokeLinejoin="round"></path>
+                          </svg>
+                        )}
                       </div>
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <h3 className="text-xs font-semibold text-slate-900 leading-tight">IntentLock™</h3>
-                          <span className="text-[9px] px-1 py-0.2 rounded bg-amber-100 text-amber-800 font-mono font-semibold">
-                            SMOOTH
+                          <h3 className="text-xs font-semibold text-slate-900 leading-tight">
+                            {intentLockEnabled ? 'Auto Dwell Click' : 'Voice-Only Click'}
+                          </h3>
+                          <span className={`text-[9px] px-1 py-0.2 rounded font-mono font-semibold ${
+                            intentLockEnabled ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                          }`}>
+                            {intentLockEnabled ? 'DWELL' : 'VOICE ONLY'}
                           </span>
                         </div>
-                        <p className="text-[10px] text-slate-500">Auto-click dwell &amp; tremor filter</p>
+                        <p className="text-[10px] text-slate-500">
+                          {intentLockEnabled
+                            ? `Lingering for ${(dwellTime / 1000).toFixed(1)}s clicks automatically`
+                            : 'Say "click" to select items. No accidental clicks while reading'}
+                        </p>
                       </div>
                     </div>
                     <button
@@ -1046,8 +1060,9 @@ export default function App() {
                         applyLocalUpdate({ intentLockEnabled: next, autoClickEnabled: next });
                       }}
                       aria-checked={intentLockEnabled}
+                      title={intentLockEnabled ? 'Switch to Voice-Only Click mode' : 'Enable Auto Dwell Click'}
                       className={`relative inline-flex h-[22px] w-10 p-0.5 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
-                        intentLockEnabled ? 'bg-[#0f766e]' : 'bg-slate-300'
+                        intentLockEnabled ? 'bg-amber-500' : 'bg-slate-300'
                       }`}
                       role="switch"
                       type="button"

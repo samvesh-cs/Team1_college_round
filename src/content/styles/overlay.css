@@ -20,3 +20,23 @@
 #handsfree-cursor.paused {
   opacity: 0.4;
 }
+
+#handsfree-cursor.clicked {
+  animation: handsfree-cursor-click-pulse 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes handsfree-cursor-click-pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.9), 0 0 15px rgba(59, 130, 246, 0.6);
+  }
+  35% {
+    transform: translate(-50%, -50%) scale(0.65);
+    background: radial-gradient(circle, rgba(37, 99, 235, 1), rgba(29, 78, 216, 0.9));
+    box-shadow: 0 0 0 12px rgba(59, 130, 246, 0.3), 0 0 20px rgba(59, 130, 246, 0.8);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+  }
+}

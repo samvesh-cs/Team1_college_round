@@ -6,6 +6,6 @@ export const DEFAULTS = {
   trackingEnabled: true,
   voiceEnabled: true,
   typingEnabled: false,
-  intentLockEnabled: true,
-  autoClickEnabled: true,
+  intentLockEnabled: false,
+  autoClickEnabled: false,
 };

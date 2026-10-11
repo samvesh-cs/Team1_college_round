@@ -89,7 +89,7 @@ if (!window.__handsfree_content_initialized) {
       }
       const isAutoClick = typeof settings.intentLockEnabled === "boolean"
         ? settings.intentLockEnabled
-        : (typeof settings.autoClickEnabled === "boolean" ? settings.autoClickEnabled : true);
+        : (typeof settings.autoClickEnabled === "boolean" ? settings.autoClickEnabled : false);
 
       if (typeof cursor.setIntentLock === "function") {
         cursor.setIntentLock(isAutoClick);
@@ -118,7 +118,7 @@ if (!window.__handsfree_content_initialized) {
   function autoStart(settings) {
     const isAutoClick = typeof settings.intentLockEnabled === "boolean"
       ? settings.intentLockEnabled
-      : (typeof settings.autoClickEnabled === "boolean" ? settings.autoClickEnabled : true);
+      : (typeof settings.autoClickEnabled === "boolean" ? settings.autoClickEnabled : false);
 
     if (settings.trackingEnabled && !cursor.isTracking) {
       cursor.start().then(() => {
@@ -292,7 +292,7 @@ if (!window.__handsfree_content_initialized) {
             recordSessionStart().catch(() => {});
             const isAutoClick = typeof currentSettings.intentLockEnabled === "boolean"
               ? currentSettings.intentLockEnabled
-              : (typeof currentSettings.autoClickEnabled === "boolean" ? currentSettings.autoClickEnabled : true);
+              : (typeof currentSettings.autoClickEnabled === "boolean" ? currentSettings.autoClickEnabled : false);
             if (isAutoClick) {
               dwellController.start();
             } else {
@@ -328,7 +328,7 @@ if (!window.__handsfree_content_initialized) {
         cursor.resume();
         const isAutoClick = typeof currentSettings.intentLockEnabled === "boolean"
           ? currentSettings.intentLockEnabled
-          : (typeof currentSettings.autoClickEnabled === "boolean" ? currentSettings.autoClickEnabled : true);
+          : (typeof currentSettings.autoClickEnabled === "boolean" ? currentSettings.autoClickEnabled : false);
         if (isAutoClick) {
           dwellController.start();
         } else {

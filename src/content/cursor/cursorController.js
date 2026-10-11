@@ -258,6 +258,22 @@ export class CursorController {
   }
 
   /**
+   * Flashes a visual click ripple and pulse on the blue cursor.
+   */
+  flashClick() {
+    if (this.cursorEl) {
+      this.cursorEl.classList.remove("clicked");
+      void this.cursorEl.offsetWidth; // trigger DOM reflow
+      this.cursorEl.classList.add("clicked");
+      setTimeout(() => {
+        if (this.cursorEl) {
+          this.cursorEl.classList.remove("clicked");
+        }
+      }, 400);
+    }
+  }
+
+  /**
    * Dynamically adjust sensitivity (cursor speed/travel distance).
    * @param {number} val
    */

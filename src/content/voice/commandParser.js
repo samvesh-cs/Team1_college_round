@@ -65,6 +65,8 @@ const COMMANDS = [
   // Clicks & Actions
   { phrases: ["double click", "double-click"], type: "DOUBLE_CLICK" },
   { phrases: ["click", "select", "press", "tap"], type: "CLICK" },
+  { phrases: ["disable auto click", "stop auto click", "turn off auto click", "voice click only", "disable dwell", "stop dwell", "voice only"], type: "DISABLE_AUTO_CLICK" },
+  { phrases: ["enable auto click", "start auto click", "turn on auto click", "enable dwell", "auto click on"], type: "ENABLE_AUTO_CLICK" },
 
   // Keyboard & Form Controls
   { phrases: ["press enter", "hit enter", "enter", "submit"], type: "PRESS_ENTER" },

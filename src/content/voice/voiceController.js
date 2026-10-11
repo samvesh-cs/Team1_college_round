@@ -2,7 +2,7 @@ import { parseCommand } from "./commandParser.js";
 import { VoiceOverlay } from "./voiceOverlay.js";
 import { TargetManager } from "./targetManager.js";
 import { AiVoiceAgent } from "./aiVoiceAgent.js";
-import { recordVoiceCommand } from "../../shared/sessionStats.js";
+import { recordVoiceCommand, recordDwellClick } from "../../shared/sessionStats.js";
 
 export class VoiceController {
   constructor() {
@@ -542,6 +542,7 @@ export class VoiceController {
       "SCROLL_DOWN", "SCROLL_UP", "GO_TOP", "GO_BOTTOM",
       "GO_BACK", "GO_FORWARD", "RELOAD",
       "CLICK", "DOUBLE_CLICK", "CLICK_TARGET",
+      "DISABLE_AUTO_CLICK", "ENABLE_AUTO_CLICK",
       "PRESS_ENTER", "PRESS_TAB", "PRESS_ESCAPE", "CLEAR_INPUT",
       "SHOW_TARGETS", "HIDE_TARGETS",
       "WAKE_UP", "EXPAND_MORE", "COLLAPSE_CHAT", "SLEEP",
@@ -703,6 +704,8 @@ export class VoiceController {
       case "CLICK": return "click";
       case "DOUBLE_CLICK": return "double click";
       case "CLICK_TARGET": return `click #${command.payload}`;
+      case "DISABLE_AUTO_CLICK": return "disable auto click";
+      case "ENABLE_AUTO_CLICK": return "enable auto click";
       case "SHOW_TARGETS": return "show targets";
       case "HIDE_TARGETS": return "hide targets";
       case "SEARCH_PAGE": return "search";
@@ -807,6 +810,42 @@ export class VoiceController {
         this.aiAgent.addAgentMessage("Simulated double-click at target", "double click", null);
         break;
 
+      case "DISABLE_AUTO_CLICK":
+        if (window.__handsfree_dwell) {
+          window.__handsfree_dwell.stop();
+        }
+        this.overlay.flashCommand("voice click only");
+        this.aiAgent.addAgentMessage("Auto dwell clicks disabled. Say 'click' to select elements safely.", "voice click only", "Voice Click Only");
+        try {
+          if (typeof chrome !== "undefined" && chrome.storage?.sync) {
+            chrome.storage.sync.get(["handsfree_settings"], (res) => {
+              const prev = res?.handsfree_settings || {};
+              chrome.storage.sync.set({
+                handsfree_settings: { ...prev, autoClickEnabled: false, intentLockEnabled: false }
+              });
+            });
+          }
+        } catch (_) {}
+        break;
+
+      case "ENABLE_AUTO_CLICK":
+        if (window.__handsfree_dwell) {
+          window.__handsfree_dwell.start();
+        }
+        this.overlay.flashCommand("auto click on");
+        this.aiAgent.addAgentMessage("Auto dwell click enabled. Hover over elements to click.", "auto click on", "Auto-Click On");
+        try {
+          if (typeof chrome !== "undefined" && chrome.storage?.sync) {
+            chrome.storage.sync.get(["handsfree_settings"], (res) => {
+              const prev = res?.handsfree_settings || {};
+              chrome.storage.sync.set({
+                handsfree_settings: { ...prev, autoClickEnabled: true, intentLockEnabled: true }
+              });
+            });
+          }
+        } catch (_) {}
+        break;
+
       case "PRESS_ENTER": {
         const activeInput = this._getActiveInput();
         if (activeInput) {
@@ -887,6 +926,9 @@ export class VoiceController {
       case "CLICK_TARGET":
         const targetNum = command.payload;
         const success = this.targetManager.clickTarget(targetNum);
+        if (success) {
+          recordDwellClick().catch(() => {});
+        }
         this.overlay.flashCommand(`click #${targetNum}`, success);
         this.aiAgent.addAgentMessage(
           success ? `Clicked numbered target #${targetNum}` : `Target #${targetNum} not found. Say 'show targets' to re-index.`,
@@ -940,9 +982,10 @@ export class VoiceController {
         this.aiAgent.addAgentMessage(
           "Available Voice Commands:\n" +
           "• Scrolling: 'scroll down', 'scroll up', 'top', 'bottom'\n" +
+          "• Clicking: 'click', 'double click', 'show targets', 'click [number]'\n" +
+          "• Click Safety: 'disable auto click' (voice-only), 'enable auto click'\n" +
           "• Search & Type: 'search [query]', 'type [text]'\n" +
           "• Navigation: 'back', 'forward', 'reload'\n" +
-          "• Clicking: 'click', 'double click', 'show targets', 'click [number]'\n" +
           "• 3-State Controls: 'wake up' (open bar), 'expand more' (open chat), 'collapse chat' (bar mode), 'sleep' (orb mode)",
           "help",
           "Here are available commands"
@@ -1144,6 +1187,17 @@ export class VoiceController {
     const cursor = window.__handsfree_cursor;
     let x = typeof cursor?.currentX === "number" ? cursor.currentX : (cursor?.x ?? window.innerWidth / 2);
     let y = typeof cursor?.currentY === "number" ? cursor.currentY : (cursor?.y ?? window.innerHeight / 2);
+
+    // Visually pulse the blue cursor with a click ripple
+    if (cursor && typeof cursor.flashClick === "function") {
+      cursor.flashClick();
+    }
+
+    // Increment click statistics
+    recordDwellClick().catch(() => {});
+    if (isDoubleClick) {
+      recordDwellClick().catch(() => {});
+    }
 
     let rawElement = null;
     try {
