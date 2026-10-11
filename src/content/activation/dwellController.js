@@ -1,4 +1,5 @@
 import { DEFAULTS } from "../../shared/constants.js";
+import { recordDwellClick } from "../../shared/sessionStats.js";
 
 /**
  * DwellController tracks the cursor position over interactive elements,
@@ -28,11 +29,16 @@ export class DwellController {
     this.lastFrameTime = 0;
     this.cooldownUntil = 0;
     this.activatedForCurrentDwell = false;
+    this._onActivateCallback = null;
 
     // DOM references
     this.overlayEl = null;
     this.progressCircle = null;
     this.ringCircumference = 2 * Math.PI * 18; // radius = 18px (~113.097px)
+  }
+
+  onActivate(callback) {
+    this._onActivateCallback = callback;
   }
 
   /**
@@ -317,6 +323,13 @@ export class DwellController {
     this.hideProgress();
 
     try {
+      recordDwellClick().catch(() => {});
+      if (typeof this._onActivateCallback === "function") {
+        try {
+          this._onActivateCallback(element);
+        } catch (_) {}
+      }
+
       if (typeof element.click === "function") {
         element.click();
       } else {

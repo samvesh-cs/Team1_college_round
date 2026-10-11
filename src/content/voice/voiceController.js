@@ -2,6 +2,7 @@ import { parseCommand } from "./commandParser.js";
 import { VoiceOverlay } from "./voiceOverlay.js";
 import { TargetManager } from "./targetManager.js";
 import { AiVoiceAgent } from "./aiVoiceAgent.js";
+import { recordVoiceCommand } from "../../shared/sessionStats.js";
 
 export class VoiceController {
   constructor() {
@@ -9,6 +10,7 @@ export class VoiceController {
     this.mode = "command"; // "command" or "dictation"
     this.enabled = false;
     this.typingEnabled = false;
+    this._onCommandCallback = null;
     
     // Fast-path execution tracking for near-zero latency
     this.lastFastCommand = null;
@@ -432,6 +434,7 @@ export class VoiceController {
         this.overlay.show("command");
         this.overlay.flashCommand("Search submitted");
         this.aiAgent.addAgentMessage("Submitted search. Back in command mode.", "search submitted", null);
+        recordVoiceCommand("press enter").catch(() => {});
         this._abortAndFlush();
         return true;
       }
@@ -446,6 +449,7 @@ export class VoiceController {
         this.overlay.show("command");
         this.overlay.flashCommand("Command mode");
         this.aiAgent.addAgentMessage("Exited typing mode. Back in command mode.", "command mode", null);
+        recordVoiceCommand("escape").catch(() => {});
         this._abortAndFlush();
         return true;
       }
@@ -458,6 +462,7 @@ export class VoiceController {
         }
         this.overlay.flashCommand("Cleared input");
         this.aiAgent.addAgentMessage("Cleared input field.", "clear", null);
+        recordVoiceCommand("clear").catch(() => {});
         this._abortAndFlush();
         return true;
       }
@@ -681,8 +686,66 @@ export class VoiceController {
     }
   }
 
+  onCommand(callback) {
+    this._onCommandCallback = callback;
+  }
+
+  _getCommandName(command, rawTranscript) {
+    if (!command) return "";
+    switch (command.type) {
+      case "SCROLL_DOWN": return "scroll down";
+      case "SCROLL_UP": return "scroll up";
+      case "GO_TOP": return "top";
+      case "GO_BOTTOM": return "bottom";
+      case "GO_BACK": return "go back";
+      case "GO_FORWARD": return "go forward";
+      case "RELOAD": return "reload";
+      case "CLICK": return "click";
+      case "DOUBLE_CLICK": return "double click";
+      case "CLICK_TARGET": return `click #${command.payload}`;
+      case "SHOW_TARGETS": return "show targets";
+      case "HIDE_TARGETS": return "hide targets";
+      case "SEARCH_PAGE": return "search";
+      case "TYPE_TEXT": return "type text";
+      case "PRESS_ENTER": return "press enter";
+      case "PRESS_TAB": return "tab";
+      case "PRESS_ESCAPE": return "escape";
+      case "CLEAR_INPUT": return "clear";
+      case "START_DICTATION": return "start dictation";
+      case "STOP_DICTATION": return "stop dictation";
+      case "CALIBRATE": return "calibrate";
+      case "PAUSE": return "pause";
+      case "RESUME": return "resume";
+      case "WAKE_UP": return "wake up";
+      case "SLEEP": return "sleep";
+      case "HELP": return "help";
+      case "EXPAND_MORE": return "expand chat";
+      case "COLLAPSE_CHAT": return "collapse chat";
+      case "AI_QUERY": return "ai query";
+      default:
+        if (typeof command.payload === "string" && command.payload.trim()) {
+          return command.payload.trim().toLowerCase();
+        }
+        return (command.type || "command").toLowerCase().replace(/_/g, " ");
+    }
+  }
+
   _executeCommand(command, rawTranscript, isFastPath = false) {
     console.log("[Handsfree] Executing command:", command.type, command.payload);
+
+    // Record voice command in session statistics
+    const cmdName = this._getCommandName(command, rawTranscript);
+    if (cmdName) {
+      recordVoiceCommand(cmdName).catch((err) =>
+        console.warn("[Handsfree] Failed to record voice stats:", err)
+      );
+      if (typeof this._onCommandCallback === "function") {
+        try {
+          this._onCommandCallback(cmdName, command);
+        } catch (_) {}
+      }
+    }
+
     const scrollStep = Math.max(320, Math.floor(window.innerHeight * 0.65));
 
     switch (command.type) {

@@ -1,5 +1,14 @@
 import { MSG } from "../shared/messages.js";
 import { getDefaults, loadSettings, validateSettingsPatch } from "../shared/settings.js";
+import {
+  recordSessionStart,
+  recordDwellClick,
+  recordVoiceCommand,
+  recordCalibration,
+  recordPause,
+  loadStats,
+  resetStats,
+} from "../shared/sessionStats.js";
 import { CursorController } from "./cursor/cursorController.js";
 import { VoiceController } from "./voice/voiceController.js";
 import { DwellController } from "./activation/dwellController.js";
@@ -45,11 +54,21 @@ if (!window.__handsfree_content_initialized) {
 
   // === WS-2: Voice Controller ===
   voiceController = new VoiceController();
+  if (typeof voiceController.onCommand === "function") {
+    voiceController.onCommand((cmdName) => {
+      recordVoiceCommand(cmdName).catch(() => {});
+    });
+  }
   window.__handsfree_voice = voiceController;
   window.__handsfree_voiceController = voiceController;
 
   // === WS-3: Dwell Activation & Target Management ===
   dwellController = new DwellController();
+  if (typeof dwellController.onActivate === "function") {
+    dwellController.onActivate(() => {
+      recordDwellClick().catch(() => {});
+    });
+  }
   targetManager = new TargetManager();
 
   window.__handsfree_dwell = dwellController;
@@ -270,6 +289,7 @@ if (!window.__handsfree_content_initialized) {
         cursor
           .start()
           .then(() => {
+            recordSessionStart().catch(() => {});
             const isAutoClick = typeof currentSettings.intentLockEnabled === "boolean"
               ? currentSettings.intentLockEnabled
               : (typeof currentSettings.autoClickEnabled === "boolean" ? currentSettings.autoClickEnabled : true);
@@ -277,6 +297,10 @@ if (!window.__handsfree_content_initialized) {
               dwellController.start();
             } else {
               dwellController.stop();
+            }
+            // Record dwell clicks via dwellController callback (if supported)
+            if (typeof dwellController.onActivate === "function") {
+              dwellController.onActivate(() => { recordDwellClick().catch(() => {}); });
             }
             sendResponse({ ok: true, status: "started" });
           })
@@ -296,6 +320,7 @@ if (!window.__handsfree_content_initialized) {
       case MSG.PAUSE_CURSOR:
         cursor.pause();
         dwellController.stop();
+        recordPause().catch(() => {});
         sendResponse({ ok: true, status: "paused" });
         break;
 
@@ -320,6 +345,7 @@ if (!window.__handsfree_content_initialized) {
           calibrationOverlay.show();
         }
         dwellController.resetDwell();
+        recordCalibration().catch(() => {});
         sendResponse({ ok: true, status: "calibrated" });
         break;
 
@@ -327,6 +353,12 @@ if (!window.__handsfree_content_initialized) {
       case MSG.START_VOICE: {
         const targetState = message.agentState || "bar";
         voiceController.start(targetState);
+        // Hook voice command recording on first start (safe to re-bind)
+        if (typeof voiceController.onCommand === "function") {
+          voiceController.onCommand((cmdName) => {
+            recordVoiceCommand(cmdName).catch(() => {});
+          });
+        }
         sendResponse({ ok: true, status: "voice_started" });
         break;
       }
@@ -399,6 +431,33 @@ if (!window.__handsfree_content_initialized) {
         currentSettings = { ...currentSettings, ...clean };
         applySettingsToControllers(currentSettings);
         sendResponse({ ok: true, settings: { ...currentSettings }, rev: lastAppliedRev });
+        break;
+      }
+
+      // === Session Stats Dashboard ===
+      case MSG.GET_STATS: {
+        loadStats()
+          .then((stats) => sendResponse({ ok: true, stats }))
+          .catch(() => sendResponse({ ok: false, error: "STATS_UNAVAILABLE" }));
+        return true; // async
+      }
+
+      case MSG.RESET_STATS: {
+        resetStats()
+          .then(() => sendResponse({ ok: true }))
+          .catch(() => sendResponse({ ok: false, error: "RESET_FAILED" }));
+        return true; // async
+      }
+
+      case MSG.RECORD_EVENT: {
+        // Generic event recording forwarded from popup
+        const { event, payload } = message;
+        if (event === "voice_command" && payload?.name) {
+          recordVoiceCommand(payload.name).catch(() => {});
+        } else if (event === "dwell_click") {
+          recordDwellClick().catch(() => {});
+        }
+        sendResponse({ ok: true });
         break;
       }
 

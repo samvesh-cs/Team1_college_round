@@ -4,6 +4,7 @@
  */
 
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+import { recordFrame } from "../../shared/sessionStats.js";
 
 // Use locally bundled WASM files (copied to public/mediapipe-wasm/) to avoid CDN CSP violations
 const WASM_URL = (typeof chrome !== "undefined" && chrome.runtime?.getURL)
@@ -166,8 +167,10 @@ export async function start(onLandmark) {
 
         try {
           const results = landmarker.detectForVideo(videoElement, nowInMs);
+          const faceFound = Boolean(results && results.faceLandmarks && results.faceLandmarks.length > 0);
+          recordFrame(faceFound);
 
-          if (results && results.faceLandmarks && results.faceLandmarks.length > 0) {
+          if (faceFound) {
             // Index 1 corresponds to the nose tip landmark in the 478-point MediaPipe mesh
             const nose = results.faceLandmarks[0][1];
             if (nose) {

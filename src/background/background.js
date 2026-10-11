@@ -1,10 +1,40 @@
 import { MSG } from "../shared/messages.js";
+import { loadStats, resetStats } from "../shared/sessionStats.js";
+
+// Reset session stats on browser startup (simulating browser-session lifespan)
+try {
+  chrome.runtime.onStartup?.addListener(() => {
+    chrome.storage?.local?.remove?.("handsfree_session_stats");
+  });
+} catch (_) {}
+
+// Grant content scripts access to chrome.storage.session if supported
+try {
+  if (chrome.storage?.session?.setAccessLevel) {
+    chrome.storage.session.setAccessLevel({ accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS" }).catch(() => {});
+  }
+} catch (_) {}
 
 // Keep background service worker active and responsive to messaging
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message.type !== "string") {
     sendResponse({ ok: false, error: "INVALID_MESSAGE" });
     return false;
+  }
+
+  // Handle Session Stats queries directly from storage (instant, no active web tab required)
+  if (message.type === MSG.GET_STATS) {
+    loadStats()
+      .then((stats) => sendResponse({ ok: true, stats }))
+      .catch(() => sendResponse({ ok: false, error: "STATS_UNAVAILABLE" }));
+    return true;
+  }
+
+  if (message.type === MSG.RESET_STATS) {
+    resetStats()
+      .then(() => sendResponse({ ok: true }))
+      .catch(() => sendResponse({ ok: false, error: "RESET_FAILED" }));
+    return true;
   }
 
   // If message is from popup/content, broadcast to active web tabs

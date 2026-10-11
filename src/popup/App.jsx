@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MSG } from '../shared/messages.js';
 import { loadSettings, saveSettings, getDefaults, validateSettingsPatch } from '../shared/settings.js';
+import { deriveMetrics } from '../shared/sessionStats.js';
 
 function send(type, payload = {}) {
   try {
@@ -16,13 +17,180 @@ function send(type, payload = {}) {
   }
 }
 
+
+// ─── StatsPanel Component ─────────────────────────────────────────────────
+function StatsPanel({ sessionStats, statsLoading, statsResetting, setStatsResetting, fetchStats }) {
+  // Auto-refresh in real time on storage changes and every 2s
+  useEffect(() => {
+    fetchStats();
+    const id = setInterval(fetchStats, 2000);
+    const handleStorageChange = (changes) => {
+      if (changes.handsfree_session_stats) {
+        fetchStats();
+      }
+    };
+    try {
+      chrome.storage?.onChanged?.addListener(handleStorageChange);
+    } catch (_) {}
+    return () => {
+      clearInterval(id);
+      try {
+        chrome.storage?.onChanged?.removeListener(handleStorageChange);
+      } catch (_) {}
+    };
+  }, [fetchStats]);
+
+  const s = sessionStats;
+  const maxCmdCount = s?.topCommands?.[0]?.[1] || 1;
+
+  const MetricCard = ({ icon, label, value, colorClass }) => (
+    <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+      <div className="flex items-center gap-1.5 mb-1">
+        <div className={`w-5 h-5 rounded-lg ${colorClass} flex items-center justify-center shrink-0`}>
+          {icon}
+        </div>
+        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{label}</span>
+      </div>
+      <p className="text-lg font-bold text-slate-800 leading-none">{value}</p>
+    </div>
+  );
+
+  return (
+    <div className="space-y-2.5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-bold text-slate-800">Session Stats</h2>
+          <p className="text-[10px] text-slate-400 mt-0.5">Resets when browser closes · Auto-refreshes every 5s</p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={fetchStats}
+            disabled={statsLoading}
+            title="Refresh now"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-teal-700 hover:bg-teal-50 border border-slate-200 transition-colors disabled:opacity-40"
+            type="button"
+          >
+            <svg className={`w-3.5 h-3.5 ${statsLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+              <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <button
+            onClick={() => {
+              if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) return;
+              setStatsResetting(true);
+              chrome.runtime.sendMessage({ type: MSG.RESET_STATS }, () => {
+                setStatsResetting(false);
+                fetchStats();
+              });
+            }}
+            disabled={statsResetting}
+            title="Reset all session stats"
+            className="px-2 py-1 rounded-lg text-[10px] font-semibold text-red-600 hover:text-white hover:bg-red-500 border border-red-200 hover:border-red-500 transition-colors disabled:opacity-40"
+            type="button"
+          >
+            {statsResetting ? 'Resetting…' : 'Reset'}
+          </button>
+        </div>
+      </div>
+
+      {!s ? (
+        <div className="p-6 rounded-xl bg-slate-50 border border-slate-200 text-center">
+          <div className="text-2xl mb-2">📊</div>
+          <p className="text-xs text-slate-400 font-medium">
+            {statsLoading ? 'Loading stats…' : 'No session data yet.'}
+          </p>
+          <p className="text-[10px] text-slate-300 mt-1">Start tracking to record stats.</p>
+        </div>
+      ) : (
+        <>
+          {/* 6-Metric Grid */}
+          <div className="grid grid-cols-2 gap-2">
+            <MetricCard
+              label="Duration"
+              value={s.sessionDuration}
+              colorClass="bg-teal-100"
+              icon={<svg className="w-3 h-3 text-teal-700" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" strokeLinecap="round"/></svg>}
+            />
+            <MetricCard
+              label="Dwell Clicks"
+              value={s.dwellClicks}
+              colorClass="bg-cyan-100"
+              icon={<svg className="w-3 h-3 text-cyan-700" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            />
+            <MetricCard
+              label="Voice Cmds"
+              value={s.voiceCommandsFired}
+              colorClass="bg-indigo-100"
+              icon={<svg className="w-3 h-3 text-indigo-700" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            />
+            <MetricCard
+              label="Face Detect"
+              value={s.detectionRate !== null ? `${s.detectionRate}%` : '—'}
+              colorClass="bg-emerald-100"
+              icon={<svg className="w-3 h-3 text-emerald-700" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            />
+            <MetricCard
+              label="Calibrations"
+              value={s.calibrations}
+              colorClass="bg-violet-100"
+              icon={<svg className="w-3 h-3 text-violet-700" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M3 12h3m12 0h3M12 3v3m0 12v3" strokeLinecap="round"/></svg>}
+            />
+            <MetricCard
+              label="Pauses"
+              value={s.pauseCount}
+              colorClass="bg-amber-100"
+              icon={<svg className="w-3 h-3 text-amber-700" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            />
+          </div>
+
+          {/* Top Voice Commands Bar Chart */}
+          {s.topCommands.length > 0 ? (
+            <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">
+                🏆 Top Voice Commands
+              </p>
+              <div className="space-y-2">
+                {s.topCommands.map(([cmd, count]) => (
+                  <div key={cmd} className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-slate-600 w-[90px] shrink-0 truncate" title={`"${cmd}"`}>
+                      "{cmd}"
+                    </span>
+                    <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-2 rounded-full bg-gradient-to-r from-teal-500 to-cyan-400 transition-all duration-500"
+                        style={{ width: `${Math.round((count / maxCmdCount) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-bold text-teal-700 w-4 text-right shrink-0">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center text-[10px] text-slate-400">
+              No voice commands recorded yet. Try saying "scroll down" or "show targets".
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState('controls'); // 'controls' | 'calibration' | 'commands'
+  const [activeTab, setActiveTab] = useState('controls'); // 'controls' | 'calibration' | 'commands' | 'stats'
   const [isRunning, setIsRunning] = useState(false);
   const [trackingEnabled, setTrackingEnabled] = useState(true);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [typingEnabled, setTypingEnabled] = useState(false);
   const [intentLockEnabled, setIntentLockEnabled] = useState(true);
+
+  // Stats dashboard state
+  const [sessionStats, setSessionStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsResetting, setStatsResetting] = useState(false);
+  const statsIntervalRef = useRef(null);
 
   // Calibration state
   const [calibrationStep, setCalibrationStep] = useState(3);
@@ -40,6 +208,18 @@ export default function App() {
   const revRef = useRef(0);
   const dirtyRef = useRef(false);
   const saveChainRef = useRef(Promise.resolve());
+
+  // Stats fetch helper
+  const fetchStats = useCallback(() => {
+    if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) return;
+    setStatsLoading(true);
+    chrome.runtime.sendMessage({ type: MSG.GET_STATS }, (res) => {
+      setStatsLoading(false);
+      if (res?.ok && res.stats) {
+        setSessionStats(deriveMetrics(res.stats));
+      }
+    });
+  }, []);
 
   function requestStatus() {
     return new Promise((resolve) => {
@@ -103,7 +283,7 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab');
-      if (tabParam === 'calibration' || tabParam === 'controls' || tabParam === 'commands') {
+      if (tabParam === 'calibration' || tabParam === 'controls' || tabParam === 'commands' || tabParam === 'stats') {
         setActiveTab(tabParam);
       }
     }
@@ -693,6 +873,23 @@ export default function App() {
                   <path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" strokeLinecap="round" strokeLinejoin="round"></path>
                 </svg>
                 Voice Ref
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('stats');
+                  fetchStats();
+                }}
+                className={`flex-1 py-1 px-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors duration-150 ${
+                  activeTab === 'stats'
+                    ? 'bg-white text-teal-800 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                type="button"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" strokeLinecap="round" strokeLinejoin="round"></path>
+                </svg>
+                Stats
               </button>
             </div>
           </nav>
@@ -1462,6 +1659,18 @@ export default function App() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* ================= TAB 4: SESSION STATS ================= */}
+            {activeTab === 'stats' && (
+              <StatsPanel
+                sessionStats={sessionStats}
+                statsLoading={statsLoading}
+                statsResetting={statsResetting}
+                setStatsResetting={setStatsResetting}
+                fetchStats={fetchStats}
+                setSessionStats={setSessionStats}
+              />
             )}
           </main>
 
