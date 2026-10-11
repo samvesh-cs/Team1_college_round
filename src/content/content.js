@@ -5,6 +5,8 @@ import { VoiceController } from "./voice/voiceController.js";
 import { DwellController } from "./activation/dwellController.js";
 import { TargetManager } from "./activation/targetManager.js";
 import { CalibrationOverlay } from "./calibration/calibrationOverlay.js";
+import { captureFrameDataUrl } from "./cursor/faceTracking.js";
+import { startEvaluation, stopEvaluation, flagAccidental, getEvaluationStatus } from "./evaluation/evaluationInjector.js";
 import "./styles/overlay.css";
 import "./styles/voice-overlay.css";
 import "./styles/activation-overlay.css";
@@ -222,6 +224,7 @@ if (!window.__handsfree_content_initialized) {
     }
     cursor.stop();
     calibrationOverlay.hide();
+    stopEvaluation();
     voiceController.stop();
     dwellController.destroy();
     targetManager.destroy();
@@ -371,6 +374,13 @@ if (!window.__handsfree_content_initialized) {
           neutral: cursor.getNeutralPoint ? cursor.getNeutralPoint() : { x: 0.5, y: 0.5 },
           dx: cursor.lastDx ?? 0,
           dy: cursor.lastDy ?? 0,
+          rawX: cursor.lastRawX ?? 0.5,
+          rawY: cursor.lastRawY ?? 0.5,
+          cursorX: typeof cursor.currentX === "number" ? cursor.currentX : Math.round(window.innerWidth / 2),
+          cursorY: typeof cursor.currentY === "number" ? cursor.currentY : Math.round(window.innerHeight / 2),
+          windowWidth: window.innerWidth,
+          windowHeight: window.innerHeight,
+          frame: message.includeFrame ? captureFrameDataUrl(0.55) : null,
           settings: { ...currentSettings },
           rev: lastAppliedRev,
           controllersAvailable: true,
@@ -422,6 +432,64 @@ if (!window.__handsfree_content_initialized) {
           message.targetNumber;
         const result = targetManager.activateTarget(targetNum);
         sendResponse({ ok: result.success, ...result });
+        break;
+      }
+
+      // === Calibration Overlay / Quick Recenter ===
+      case MSG.CALIBRATE: {
+        if (message.quick) {
+          if (cursor && typeof cursor.calibrate === "function") {
+            cursor.calibrate();
+          }
+          sendResponse({ ok: true, status: "quick_calibrated" });
+        } else {
+          if (calibrationOverlay && typeof calibrationOverlay.show === "function") {
+            calibrationOverlay.show();
+          }
+          sendResponse({ ok: true, status: "overlay_shown" });
+        }
+        break;
+      }
+
+      // === Performance Evaluation ===
+      case MSG.START_EVALUATION: {
+        startEvaluation(message.mode || "handsfree", message.comparisonId);
+        sendResponse({ ok: true, status: "evaluation_started" });
+        break;
+      }
+
+      case MSG.STOP_EVALUATION: {
+        stopEvaluation();
+        sendResponse({ ok: true, status: "evaluation_stopped" });
+        break;
+      }
+
+      case "FLAG_ACCIDENTAL": {
+        flagAccidental();
+        sendResponse({ ok: true, status: "accidental_flagged" });
+        break;
+      }
+
+      case "GET_EVALUATION_STATUS": {
+        sendResponse({ ok: true, status: getEvaluationStatus() });
+        break;
+      }
+
+      case "GET_CAMERA_FRAME": {
+        const frame = captureFrameDataUrl(0.55);
+        sendResponse({
+          ok: true,
+          frame,
+          tracking: cursor.isTracking,
+          dx: cursor.lastDx ?? 0,
+          dy: cursor.lastDy ?? 0,
+          rawX: cursor.lastRawX ?? 0.5,
+          rawY: cursor.lastRawY ?? 0.5,
+          cursorX: typeof cursor.currentX === "number" ? cursor.currentX : Math.round(window.innerWidth / 2),
+          cursorY: typeof cursor.currentY === "number" ? cursor.currentY : Math.round(window.innerHeight / 2),
+          windowWidth: window.innerWidth,
+          windowHeight: window.innerHeight,
+        });
         break;
       }
 

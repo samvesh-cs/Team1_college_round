@@ -3,7 +3,7 @@ node_modules/
 
 # Production build
 dist/
-
+tests/
 
 # Environment variables
 .env
@@ -13,5 +13,3 @@ dist/
 __pycache__/
 .venv/
 *.pyc
-
-tests/
