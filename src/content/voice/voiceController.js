@@ -21,6 +21,7 @@ export class VoiceController {
     this.lastSpokenText = "";
     this.lastSpokenTime = 0;
     this.isTabBackgrounded = typeof document !== "undefined" ? document.hidden : false;
+    this._executedCommandCount = 0;
 
     // Listen to tab visibility changes to yield microphone to active tab
     if (typeof document !== "undefined") {
@@ -238,6 +239,14 @@ export class VoiceController {
     this.overlay.setGhostText("");
     this.aiAgent.setInterimText("");
     if (!this.enabled || !this.recognition || this.isTabBackgrounded) return;
+
+    // After 5 commands, Chrome's internal Web Speech pipeline begins leaking audio buffers & latency degrades.
+    // Cleanly re-instantiate SpeechRecognition to maintain 100-200ms instantaneous responsiveness!
+    if (this._executedCommandCount >= 5) {
+      this._recreateRecognition();
+      return;
+    }
+
     try {
       this._isAborting = true;
       // Immediately wipe internal audio buffer so cloud server stops processing trailing syllables
@@ -272,6 +281,11 @@ export class VoiceController {
   }
 
   _recreateRecognition() {
+    this._executedCommandCount = 0;
+    if (this._restartTimer) {
+      clearTimeout(this._restartTimer);
+      this._restartTimer = null;
+    }
     if (this.recognition) {
       try {
         this.recognition.onstart = null;
@@ -280,12 +294,15 @@ export class VoiceController {
         this.recognition.onerror = null;
         this.recognition.abort();
       } catch (e) {}
+      this.recognition = null;
     }
     this._initSpeechRecognition();
     if (this.enabled && this.recognition && !this.isTabBackgrounded && !this.isSpeaking) {
       try {
         this.recognition.start();
-      } catch (e) {}
+      } catch (e) {
+        this._safeRestart();
+      }
     }
   }
 
@@ -321,12 +338,10 @@ export class VoiceController {
     // Periodically recycle cloud speech connection to prevent audio buffer latency bloat
     if (this._sessionRefreshTimer) clearInterval(this._sessionRefreshTimer);
     this._sessionRefreshTimer = setInterval(() => {
-      if (this.enabled && !this.isTabBackgrounded && Date.now() - this.lastFastCommandTime > 5000) {
-        try {
-          this.recognition && this.recognition.stop();
-        } catch (e) {}
+      if (this.enabled && !this.isTabBackgrounded && !this.isSpeaking && Date.now() - this.lastFastCommandTime > 4000) {
+        this._recreateRecognition();
       }
-    }, 35000);
+    }, 20000);
   }
 
   stop() {
@@ -682,7 +697,8 @@ export class VoiceController {
   }
 
   _executeCommand(command, rawTranscript, isFastPath = false) {
-    console.log("[Handsfree] Executing command:", command.type, command.payload);
+    this._executedCommandCount++;
+    console.log("[Handsfree] Executing command:", command.type, command.payload, `(count: ${this._executedCommandCount})`);
     const scrollStep = Math.max(320, Math.floor(window.innerHeight * 0.65));
 
     switch (command.type) {

@@ -112,7 +112,7 @@ export default function App() {
     // Sync state with chrome.storage.local
     if (typeof chrome !== 'undefined' && chrome.storage?.local) {
       chrome.storage.local.get(
-        ['engineRunning', 'voiceEnabled', 'trackingEnabled', 'typingEnabled', 'intentLockEnabled'],
+        ['engineRunning', 'voiceEnabled', 'trackingEnabled', 'typingEnabled', 'intentLockEnabled', 'popupWidth', 'popupHeight', 'popupSizePreset', 'windowMode'],
         (res) => {
           if (res) {
             if (typeof res.engineRunning === 'boolean') setIsRunning(res.engineRunning);
@@ -120,6 +120,10 @@ export default function App() {
             if (typeof res.trackingEnabled === 'boolean') setTrackingEnabled(res.trackingEnabled);
             if (typeof res.typingEnabled === 'boolean') setTypingEnabled(res.typingEnabled);
             if (typeof res.intentLockEnabled === 'boolean') setIntentLockEnabled(res.intentLockEnabled);
+            if (res.popupSizePreset) setSizePreset(res.popupSizePreset);
+            if (typeof res.popupWidth === 'number') setCustomWidth(res.popupWidth);
+            if (typeof res.popupHeight === 'number') setCustomHeight(res.popupHeight);
+            if (res.windowMode) setWindowMode(res.windowMode);
           }
         }
       );
@@ -269,12 +273,12 @@ export default function App() {
     if (windowMode === 'minimized') {
       w = 360;
       h = 190; // True minimize: compact mini-dock view
-    } else if (windowMode === 'maximized') {
+    } else if (windowMode === 'maximized' || sizePreset === 'max') {
       w = 800;
       h = 600; // Max allowed popup viewport bounds
     } else {
-      w = customWidth || (sizePreset === 'medium' ? 560 : sizePreset === 'wide' ? 740 : 390);
-      h = customHeight || 580;
+      w = customWidth || (sizePreset === 'medium' ? 560 : sizePreset === 'wide' ? 720 : 390);
+      h = customHeight || (sizePreset === 'medium' || sizePreset === 'wide' ? 600 : 580);
     }
 
     try {
@@ -284,6 +288,24 @@ export default function App() {
       document.body.style.height = `${h}px`;
     } catch (e) {}
   }, [windowMode, sizePreset, customWidth, customHeight, isTabMode]);
+
+  const applyAndSavePreset = (preset) => {
+    setSizePreset(preset);
+    setCustomWidth(null);
+    setCustomHeight(null);
+    setWindowMode('normal');
+    const w = preset === 'medium' ? 560 : preset === 'wide' ? 720 : preset === 'max' ? 800 : 390;
+    const h = preset === 'compact' ? 580 : 600;
+    try {
+      document.documentElement.style.width = `${w}px`;
+      document.body.style.width = `${w}px`;
+      document.documentElement.style.height = `${h}px`;
+      document.body.style.height = `${h}px`;
+    } catch (_) {}
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      chrome.storage.local.set({ popupSizePreset: preset, popupWidth: null, popupHeight: null, windowMode: 'normal' });
+    }
+  };
 
   // 4. Open In Tab / Window with Duplicate Tab Prevention
   const openInNewWindow = (targetTab = null) => {
@@ -508,19 +530,19 @@ export default function App() {
 
   const widthStyle = windowMode === 'minimized'
     ? '360px'
-    : windowMode === 'maximized'
+    : windowMode === 'maximized' || sizePreset === 'max'
     ? '800px'
     : customWidth 
     ? `${customWidth}px` 
     : sizePreset === 'medium' 
     ? '560px' 
     : sizePreset === 'wide' 
-    ? '740px' 
+    ? '720px' 
     : '390px';
 
   const heightStyle = windowMode === 'minimized'
     ? '190px'
-    : windowMode === 'maximized'
+    : windowMode === 'maximized' || sizePreset === 'max' || sizePreset === 'wide' || sizePreset === 'medium'
     ? '600px'
     : customHeight 
     ? `${customHeight}px` 
@@ -606,20 +628,41 @@ export default function App() {
             </svg>
           </button>
 
-          {/* Sizing Preset Switcher (Compact / Medium / Wide) */}
-          <button
-            onClick={() => {
-              setCustomWidth(null);
-              setCustomHeight(null);
-              setWindowMode('normal');
-              setSizePreset(prev => prev === 'compact' ? 'medium' : prev === 'medium' ? 'wide' : 'compact');
-            }}
-            title={`Cycle size preset: ${sizePreset} (click for 390px / 560px / 740px)`}
-            className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200/80 transition-colors"
-            type="button"
-          >
-            {sizePreset === 'compact' ? '390px' : sizePreset === 'medium' ? '560px' : '740px'}
-          </button>
+          {/* Sizing Preset Switcher: S (390px) | M (560px) | L (720px) | Max (800px) */}
+          <div className="flex items-center bg-slate-100/90 rounded-md p-0.5 border border-slate-200 text-[10px] font-semibold text-slate-600">
+            <button
+              onClick={() => applyAndSavePreset('compact')}
+              title="Compact width: 390px"
+              className={`px-1.5 py-0.5 rounded transition-colors ${sizePreset === 'compact' && windowMode === 'normal' && !customWidth ? 'bg-white text-teal-700 shadow-xs font-bold border border-slate-200/80' : 'hover:text-slate-900'}`}
+              type="button"
+            >
+              S
+            </button>
+            <button
+              onClick={() => applyAndSavePreset('medium')}
+              title="Medium width: 560px"
+              className={`px-1.5 py-0.5 rounded transition-colors ${sizePreset === 'medium' && windowMode === 'normal' && !customWidth ? 'bg-white text-teal-700 shadow-xs font-bold border border-slate-200/80' : 'hover:text-slate-900'}`}
+              type="button"
+            >
+              M
+            </button>
+            <button
+              onClick={() => applyAndSavePreset('wide')}
+              title="Wide width: 720px"
+              className={`px-1.5 py-0.5 rounded transition-colors ${sizePreset === 'wide' && windowMode === 'normal' && !customWidth ? 'bg-white text-teal-700 shadow-xs font-bold border border-slate-200/80' : 'hover:text-slate-900'}`}
+              type="button"
+            >
+              L
+            </button>
+            <button
+              onClick={() => applyAndSavePreset('max')}
+              title="Maximum width: 800px"
+              className={`px-1.5 py-0.5 rounded transition-colors ${(sizePreset === 'max' || windowMode === 'maximized') && !customWidth ? 'bg-white text-teal-700 shadow-xs font-bold border border-slate-200/80' : 'hover:text-slate-900'}`}
+              type="button"
+            >
+              Max
+            </button>
+          </div>
 
           {/* Maximize Window Button (800x600) */}
           <button
@@ -1567,14 +1610,18 @@ export default function App() {
               e.preventDefault();
               const startX = e.clientX;
               const startW = e.currentTarget.parentElement.offsetWidth;
+              let finalW = startW;
               const onMouseMove = (moveEvt) => {
-                const newW = Math.min(800, Math.max(340, startW + (moveEvt.clientX - startX)));
-                setCustomWidth(newW);
-                document.body.style.width = `${newW}px`;
+                finalW = Math.min(800, Math.max(340, startW + (moveEvt.clientX - startX)));
+                setCustomWidth(finalW);
+                document.body.style.width = `${finalW}px`;
               };
               const onMouseUp = () => {
                 window.removeEventListener('mousemove', onMouseMove);
                 window.removeEventListener('mouseup', onMouseUp);
+                if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+                  chrome.storage.local.set({ popupWidth: finalW });
+                }
               };
               window.addEventListener('mousemove', onMouseMove);
               window.addEventListener('mouseup', onMouseUp);
@@ -1589,14 +1636,18 @@ export default function App() {
               e.preventDefault();
               const startY = e.clientY;
               const startH = e.currentTarget.parentElement.offsetHeight;
+              let finalH = startH;
               const onMouseMove = (moveEvt) => {
-                const newH = Math.min(600, Math.max(180, startH + (moveEvt.clientY - startY)));
-                setCustomHeight(newH);
-                document.body.style.height = `${newH}px`;
+                finalH = Math.min(600, Math.max(180, startH + (moveEvt.clientY - startY)));
+                setCustomHeight(finalH);
+                document.body.style.height = `${finalH}px`;
               };
               const onMouseUp = () => {
                 window.removeEventListener('mousemove', onMouseMove);
                 window.removeEventListener('mouseup', onMouseUp);
+                if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+                  chrome.storage.local.set({ popupHeight: finalH });
+                }
               };
               window.addEventListener('mousemove', onMouseMove);
               window.addEventListener('mouseup', onMouseUp);
@@ -1613,17 +1664,22 @@ export default function App() {
               const startY = e.clientY;
               const startW = e.currentTarget.parentElement.offsetWidth;
               const startH = e.currentTarget.parentElement.offsetHeight;
+              let finalW = startW;
+              let finalH = startH;
               const onMouseMove = (moveEvt) => {
-                const newW = Math.min(800, Math.max(340, startW + (moveEvt.clientX - startX)));
-                const newH = Math.min(600, Math.max(180, startH + (moveEvt.clientY - startY)));
-                setCustomWidth(newW);
-                setCustomHeight(newH);
-                document.body.style.width = `${newW}px`;
-                document.body.style.height = `${newH}px`;
+                finalW = Math.min(800, Math.max(340, startW + (moveEvt.clientX - startX)));
+                finalH = Math.min(600, Math.max(180, startH + (moveEvt.clientY - startY)));
+                setCustomWidth(finalW);
+                setCustomHeight(finalH);
+                document.body.style.width = `${finalW}px`;
+                document.body.style.height = `${finalH}px`;
               };
               const onMouseUp = () => {
                 window.removeEventListener('mousemove', onMouseMove);
                 window.removeEventListener('mouseup', onMouseUp);
+                if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+                  chrome.storage.local.set({ popupWidth: finalW, popupHeight: finalH });
+                }
               };
               window.addEventListener('mousemove', onMouseMove);
               window.addEventListener('mouseup', onMouseUp);

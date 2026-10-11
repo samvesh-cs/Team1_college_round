@@ -1,11 +1,15 @@
 /* ==========================================================================
-   HANDSFREE AI VOICE AGENT & HOLOGRAPHIC SLEEP ORB (3-STATE SYSTEM)
-   State 1: Small Sleep Orb (Image 2)
-   State 2: Floating Pill Dock Bar (Image 4)
-   State 3: Full Chat History Window (Image 1)
+   HANDSFREE AI VOICE AGENT & HOLOGRAPHIC SLEEP CORONA (3-STATE SYSTEM)
+   Theme: Extension Signature White & Bluish Cyan Frosted Glass
+   State 1: Celestial Cyan Corona (Sleep Mode)
+   State 2: Floating Pill Dock Bar (State without chats)
+   State 3: Full Chat History Window
    ========================================================================== */
 
-/* 1. STATE 1: HOLOGRAPHIC GLOWING SLEEP ORB (IMAGE 2) */
+/* --------------------------------------------------------------------------
+   1. STATE 1: CELESTIAL CYAN CORONA (SLEEP MODE)
+   Compact 48px glowing astral star/corona without microphone
+   -------------------------------------------------------------------------- */
 #handsfree-sleep-orb-container {
   position: fixed;
   bottom: 24px;
@@ -17,6 +21,7 @@
   user-select: none;
   cursor: grab;
   transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  isolation: isolate;
 }
 
 #handsfree-sleep-orb-container:active {
@@ -29,73 +34,87 @@
   transform: scale(0.6) translateY(20px);
 }
 
-/* Outer luminous holographic aura */
+/* Outer luminous cyan corona aura */
 .handsfree-orb-wrapper {
   position: relative;
-  width: 68px;
-  height: 68px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  background: radial-gradient(circle, rgba(15, 23, 42, 0.95) 0%, rgba(2, 6, 23, 0.98) 100%);
+  background: radial-gradient(circle, #083344 0%, #031e2b 60%, #020617 100%);
   box-shadow: 
-    0 0 25px rgba(168, 85, 247, 0.55),
-    0 0 50px rgba(6, 182, 212, 0.35),
-    0 8px 32px rgba(0, 0, 0, 0.6);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+    0 0 18px rgba(0, 245, 255, 0.65),
+    0 0 35px rgba(6, 182, 212, 0.45),
+    0 6px 20px rgba(0, 0, 0, 0.45);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+  clip-path: circle(50% at 50% 50%);
+  -webkit-clip-path: circle(50% at 50% 50%);
 }
 
 .handsfree-orb-wrapper:hover {
-  transform: scale(1.08);
+  transform: scale(1.1);
   box-shadow: 
-    0 0 35px rgba(168, 85, 247, 0.75),
-    0 0 65px rgba(6, 182, 212, 0.5),
-    0 12px 36px rgba(0, 0, 0, 0.7);
+    0 0 28px rgba(0, 245, 255, 0.85),
+    0 0 50px rgba(6, 182, 212, 0.6),
+    0 8px 24px rgba(0, 0, 0, 0.55);
 }
 
-/* Neon animated gradient ring matching Image 2 */
+/* Radiant Cyan Corona Pulsing Outer Glow */
+.handsfree-orb-corona-glow {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 245, 255, 0.45) 0%, rgba(6, 182, 212, 0.25) 55%, transparent 80%);
+  filter: blur(5px);
+  animation: corona-flare 3.5s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Neon animated cyan/turquoise corona ring */
 .handsfree-orb-ring {
   position: absolute;
-  inset: -3px;
+  inset: -2.5px;
   border-radius: 50%;
   background: conic-gradient(
     from 0deg,
-    #3b82f6 0deg,
-    #8b5cf6 70deg,
-    #ec4899 140deg,
-    #f43f5e 200deg,
-    #06b6d4 270deg,
-    #2dd4bf 320deg,
-    #3b82f6 360deg
+    #00f5ff 0deg,
+    #06b6d4 60deg,
+    #2dd4bf 120deg,
+    #38bdf8 180deg,
+    #0284c7 240deg,
+    #22d3ee 300deg,
+    #00f5ff 360deg
   );
-  filter: blur(1.5px);
-  animation: orb-spin 8s linear infinite;
-  opacity: 0.9;
+  filter: blur(1.2px);
+  animation: orb-spin 5s linear infinite;
+  opacity: 0.95;
   z-index: 1;
 }
 
-/* Luminous dotted/dashed corona track */
+/* Luminous dotted/dashed cyan corona track */
 .handsfree-orb-dots {
   position: absolute;
   inset: 1px;
   border-radius: 50%;
-  border: 2px dashed rgba(255, 255, 255, 0.55);
+  border: 1.5px dashed rgba(0, 245, 255, 0.8);
   box-sizing: border-box;
-  animation: orb-spin-reverse 16s linear infinite;
+  animation: orb-spin-reverse 10s linear infinite;
   z-index: 2;
   pointer-events: none;
 }
 
-/* 3D Glass Inner Sphere */
+/* 3D Glass Inner Celestial Corona Sphere */
 .handsfree-orb-core {
   position: relative;
-  width: 52px;
-  height: 52px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #1e1b4b 0%, #030712 75%);
-  box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.3), inset 0 -4px 10px rgba(0, 0, 0, 0.9);
+  background: radial-gradient(circle at 35% 30%, #0e4860 0%, #082f3e 50%, #020617 90%);
+  box-shadow: inset 0 2px 5px rgba(0, 245, 255, 0.45), inset 0 -3px 8px rgba(0, 0, 0, 0.9);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -103,49 +122,79 @@
   overflow: hidden;
 }
 
-/* Specular light highlight */
-.handsfree-orb-specular {
-  position: absolute;
-  top: 6px;
-  left: 10px;
-  width: 18px;
-  height: 10px;
-  border-radius: 50%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255) 100%);
-  transform: rotate(-25deg);
-  pointer-events: none;
-}
-
-/* Satellite Turquoise status pip (Image 3 & 4 design) */
-.handsfree-orb-pip {
-  position: absolute;
-  top: -2px;
-  right: 0px;
+/* Central Astral Cyan Star Glint (No Microphone!) */
+.handsfree-orb-corona-star {
+  position: relative;
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background-color: #2dd4bf; /* turquoise */
-  box-shadow: 0 0 10px #2dd4bf, 0 0 4px #ffffff;
-  border: 1.5px solid #0f172a;
+  background: #ffffff;
+  box-shadow: 
+    0 0 10px #00f5ff,
+    0 0 18px #06b6d4,
+    0 0 26px #2dd4bf;
+  animation: corona-star-pulse 2s ease-in-out infinite alternate;
+  z-index: 4;
+}
+
+/* Concentric Luminous Corona Halo Ring */
+.handsfree-orb-corona-inner-ring {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 245, 255, 0.55);
+  box-shadow: 0 0 8px rgba(0, 245, 255, 0.35);
+  pointer-events: none;
+  z-index: 3;
+  animation: corona-halo 3s ease-in-out infinite alternate;
+}
+
+/* Specular light highlight */
+.handsfree-orb-specular {
+  position: absolute;
+  top: 4px;
+  left: 7px;
+  width: 11px;
+  height: 6px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.1) 100%);
+  transform: rotate(-25deg);
+  pointer-events: none;
   z-index: 5;
+}
+
+/* Satellite Cyan status pip */
+.handsfree-orb-pip {
+  position: absolute;
+  top: -2px;
+  right: -1px;
+  width: 7.5px;
+  height: 7.5px;
+  border-radius: 50%;
+  background-color: #00f5ff;
+  box-shadow: 0 0 8px #00f5ff, 0 0 2px #ffffff;
+  border: 1px solid #083344;
+  z-index: 6;
   animation: orb-pip-pulse 2s infinite ease-in-out;
 }
 
 /* Orb Sleep Toast / Badge */
 .handsfree-orb-toast {
   position: absolute;
-  bottom: 76px;
-  background: rgba(15, 23, 42, 0.95);
-  color: #2dd4bf;
-  border: 1px solid rgba(45, 212, 191, 0.35);
-  padding: 5px 12px;
+  bottom: 60px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #0284c7;
+  border: 1px solid rgba(6, 182, 212, 0.4);
+  padding: 4px 12px;
   border-radius: 20px;
   font-size: 11px;
   font-weight: 600;
   font-family: system-ui, -apple-system, sans-serif;
   white-space: nowrap;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 15px rgba(15, 23, 42, 0.12), 0 0 10px rgba(6, 182, 212, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   pointer-events: none;
   opacity: 0;
   transform: translateY(6px);
@@ -157,7 +206,12 @@
   transform: translateY(0);
 }
 
-/* 2. FLOATING AI VOICE AGENT WINDOW (STATES 2 & 3) */
+
+/* --------------------------------------------------------------------------
+   2. FLOATING AI VOICE AGENT WINDOW (STATES 2 & 3)
+   Signature Theme: White & Bluish Cyan Frosted Glass
+   With Strict Anti-Square Clipping (`clip-path`) to guarantee NO rectangular borders!
+   -------------------------------------------------------------------------- */
 #handsfree-ai-agent-window {
   position: fixed;
   bottom: 24px;
@@ -165,17 +219,17 @@
   z-index: 2147483647;
   display: flex;
   flex-direction: column;
-  background: rgba(15, 23, 42, 0.94);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 
-    0 16px 40px -10px rgba(0, 0, 0, 0.7),
-    0 0 25px -5px rgba(13, 148, 136, 0.2);
-  color: #f8fafc;
+  box-sizing: border-box !important;
+  color: #0f172a;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  overflow: hidden;
+  overflow: hidden !important;
+  isolation: isolate !important;
+  outline: none !important;
   transition: opacity 0.25s ease, transform 0.25s ease, border-radius 0.25s ease, width 0.25s ease;
+}
+
+#handsfree-ai-agent-window * {
+  box-sizing: border-box !important;
 }
 
 #handsfree-ai-agent-window.hidden {
@@ -184,14 +238,22 @@
   transform: scale(0.85) translateY(30px);
 }
 
-/* STATE 2: SLIM FLOATING PILL DOCK BAR (IMAGE 4) */
+/* STATE 2: SLIM FLOATING PILL DOCK BAR (WINDOW WITHOUT CHATS)
+   Theme: Crisp Frosted White & Bluish Cyan, Pill Shaped, Zero Square Box
+   -------------------------------------------------------------------------- */
 #handsfree-ai-agent-window.mode-bar {
   width: 540px;
   max-width: calc(100vw - 32px);
-  border-radius: 9999px;
+  border-radius: 9999px !important;
+  clip-path: inset(0 round 9999px) !important;
+  -webkit-clip-path: inset(0 round 9999px) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(24px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+  border: 1.5px solid rgba(6, 182, 212, 0.42) !important;
   box-shadow: 
-    0 10px 30px rgba(0, 0, 0, 0.6),
-    0 0 20px rgba(13, 148, 136, 0.25);
+    0 16px 40px -6px rgba(15, 23, 42, 0.12),
+    0 0 25px rgba(6, 182, 212, 0.28) !important;
 }
 
 #handsfree-ai-agent-window.mode-bar .handsfree-agent-header {
@@ -205,16 +267,28 @@
 }
 
 #handsfree-ai-agent-window.mode-bar .handsfree-agent-dock {
-  border-top: none;
-  padding: 8px 12px;
-  border-radius: 9999px;
+  border-top: none !important;
+  padding: 7px 12px !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
 }
 
-/* STATE 3: FULL EXPANDED CHAT HISTORY WINDOW (IMAGE 1) */
+/* STATE 3: FULL EXPANDED CHAT HISTORY WINDOW
+   Theme: White & Bluish Cyan Card with Smooth Rounded Edges
+   -------------------------------------------------------------------------- */
 #handsfree-ai-agent-window.mode-chat {
   width: 480px;
   max-width: calc(100vw - 32px);
-  border-radius: 20px;
+  border-radius: 22px !important;
+  clip-path: inset(0 round 22px) !important;
+  -webkit-clip-path: inset(0 round 22px) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  backdrop-filter: blur(24px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+  border: 1.5px solid rgba(6, 182, 212, 0.35) !important;
+  box-shadow: 
+    0 20px 50px -10px rgba(15, 23, 42, 0.16),
+    0 0 30px rgba(6, 182, 212, 0.24) !important;
 }
 
 #handsfree-ai-agent-window.mode-chat .handsfree-agent-header {
@@ -227,14 +301,15 @@
 }
 
 #handsfree-ai-agent-window.mode-chat .handsfree-agent-dock {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(6, 182, 212, 0.18) !important;
+  background: rgba(248, 250, 252, 0.9) !important;
 }
 
-/* Agent Header */
+/* Agent Header (State 3) */
 .handsfree-agent-header {
-  padding: 10px 14px;
-  background: rgba(30, 41, 59, 0.7);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 11px 16px;
+  background: rgba(248, 250, 252, 0.95);
+  border-bottom: 1px solid rgba(6, 182, 212, 0.18);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -253,19 +328,20 @@
 }
 
 .handsfree-header-orb-icon {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, #3b82f6, #ec4899, #06b6d4, #3b82f6);
-  box-shadow: 0 0 8px rgba(6, 182, 212, 0.6);
+  background: conic-gradient(from 0deg, #00f5ff, #06b6d4, #2dd4bf, #0284c7, #00f5ff);
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.7);
   display: inline-block;
+  animation: orb-spin 6s linear infinite;
 }
 
 .handsfree-agent-title {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: -0.01em;
-  color: #ffffff;
+  color: #0f172a;
 }
 
 .handsfree-agent-status-badge {
@@ -273,9 +349,9 @@
   font-weight: 600;
   padding: 2px 7px;
   border-radius: 9999px;
-  background: rgba(20, 184, 166, 0.15);
-  color: #2dd4bf;
-  border: 1px solid rgba(45, 212, 191, 0.3);
+  background: rgba(6, 182, 212, 0.12);
+  color: #0284c7;
+  border: 1px solid rgba(6, 182, 212, 0.35);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -290,7 +366,7 @@
 .handsfree-header-btn {
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: #64748b;
   width: 26px;
   height: 26px;
   border-radius: 6px;
@@ -302,11 +378,11 @@
 }
 
 .handsfree-header-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
+  background: rgba(6, 182, 212, 0.12);
+  color: #0284c7;
 }
 
-/* Chat Messages Area (Image 1 & 3) */
+/* Chat Messages Area (State 3) */
 .handsfree-agent-chat-body {
   height: 250px;
   min-height: 180px;
@@ -316,16 +392,17 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  background: #ffffff;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  scrollbar-color: rgba(6, 182, 212, 0.3) transparent;
 }
 
 .handsfree-agent-chat-body::-webkit-scrollbar {
-  width: 5px;
+  width: 4px;
 }
 
 .handsfree-agent-chat-body::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(6, 182, 212, 0.35);
   border-radius: 10px;
 }
 
@@ -347,7 +424,7 @@
 
 /* Message Bubbles */
 .handsfree-msg-bubble {
-  padding: 10px 14px;
+  padding: 9px 13px;
   border-radius: 16px;
   font-size: 13px;
   line-height: 1.45;
@@ -355,24 +432,24 @@
 }
 
 .handsfree-msg-row.agent .handsfree-msg-bubble {
-  background: rgba(30, 41, 59, 0.85);
-  color: #e2e8f0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #f8fafc;
+  color: #1e293b;
+  border: 1px solid rgba(226, 232, 240, 0.95);
   border-top-left-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
 }
 
 .handsfree-msg-row.user .handsfree-msg-bubble {
-  background: #0d9488; /* turquoise / emerald */
+  background: linear-gradient(135deg, #06b6d4 0%, #0d9488 100%);
   color: #ffffff;
   border-top-right-radius: 4px;
   font-weight: 500;
-  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35);
+  box-shadow: 0 3px 12px rgba(6, 182, 212, 0.35);
 }
 
 .handsfree-msg-time {
   font-size: 10px;
-  color: #64748b;
+  color: #94a3b8;
   margin-top: 4px;
   padding: 0 4px;
 }
@@ -380,9 +457,9 @@
 /* Command Pill inside Agent response */
 .handsfree-cmd-tag {
   display: inline-block;
-  background: rgba(45, 212, 191, 0.15);
-  color: #2dd4bf;
-  border: 1px solid rgba(45, 212, 191, 0.25);
+  background: rgba(6, 182, 212, 0.12);
+  color: #0284c7;
+  border: 1px solid rgba(6, 182, 212, 0.3);
   border-radius: 6px;
   padding: 2px 6px;
   font-size: 11px;
@@ -390,29 +467,31 @@
   margin-top: 4px;
 }
 
-/* 3. BOTTOM DOCK BAR (IMAGE 3 & 4) */
+
+/* --------------------------------------------------------------------------
+   3. BOTTOM DOCK BAR (STATES 2 & 3)
+   Theme: Extension White & Bluish Cyan Glass
+   -------------------------------------------------------------------------- */
 .handsfree-agent-dock {
-  padding: 8px 12px;
-  background: rgba(15, 23, 42, 0.95);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 7px 12px;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-/* Mini Holographic Orb in Dock */
+/* Mini Celestial Corona in Dock */
 .handsfree-dock-orb {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: radial-gradient(circle, #020617 0%, #1e1b4b 100%);
+  background: radial-gradient(circle, #083344 0%, #020617 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 0 14px rgba(168, 85, 247, 0.45);
+  box-shadow: 0 0 12px rgba(0, 245, 255, 0.5);
   transition: transform 0.2s ease;
 }
 
@@ -424,31 +503,31 @@
   position: absolute;
   inset: -1.5px;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, #3b82f6, #ec4899, #06b6d4, #2dd4bf, #3b82f6);
-  animation: orb-spin 6s linear infinite;
+  background: conic-gradient(from 0deg, #00f5ff, #06b6d4, #2dd4bf, #0284c7, #00f5ff);
+  animation: orb-spin 5s linear infinite;
   z-index: 1;
 }
 
 .handsfree-dock-orb-core {
   position: relative;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #1e1b4b 0%, #030712 90%);
+  background: radial-gradient(circle at 35% 30%, #0e4860 0%, #020617 90%);
   z-index: 2;
-  box-shadow: inset 0 1px 3px rgba(255, 255, 255, 0.4);
+  box-shadow: inset 0 1px 3px rgba(0, 245, 255, 0.4);
 }
 
 .handsfree-dock-orb-pip {
   position: absolute;
   top: -1px;
   right: -1px;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background-color: #2dd4bf;
-  box-shadow: 0 0 6px #2dd4bf;
-  border: 1px solid #0f172a;
+  background-color: #00f5ff;
+  box-shadow: 0 0 6px #00f5ff;
+  border: 1px solid #083344;
   z-index: 4;
 }
 
@@ -465,7 +544,7 @@
 .handsfree-wave-bar {
   width: 3px;
   border-radius: 2px;
-  background: linear-gradient(180deg, #2dd4bf 0%, #d946ef 100%);
+  background: linear-gradient(180deg, #00f5ff 0%, #0284c7 100%);
   transition: height 0.15s ease;
 }
 
@@ -485,8 +564,9 @@
   background: transparent;
   border: none;
   outline: none;
-  color: #f8fafc;
+  color: #0f172a;
   font-size: 13px;
+  font-weight: 500;
   font-family: inherit;
   padding: 6px 4px;
   min-width: 60px;
@@ -495,18 +575,30 @@
 .handsfree-dock-input::placeholder {
   color: #64748b;
   font-size: 12.5px;
+  font-weight: 400;
 }
 
-/* Voice Button with Turquoise Mic Icon */
+.handsfree-dock-input.hearing {
+  color: #0284c7 !important;
+  font-weight: 600 !important;
+}
+
+.handsfree-dock-input.hearing::placeholder {
+  color: #0284c7 !important;
+  text-shadow: 0 0 8px rgba(6, 182, 212, 0.45);
+  font-weight: 600 !important;
+}
+
+/* Voice Button with Cyan Border */
 .handsfree-dock-voice-btn {
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #f1f5f9;
+  border: 1px solid rgba(6, 182, 212, 0.35);
   border-radius: 9999px;
   padding: 5px 10px;
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #e2e8f0;
+  color: #0f172a;
   font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
@@ -515,29 +607,30 @@
 }
 
 .handsfree-dock-voice-btn:hover {
-  background: rgba(51, 65, 85, 0.9);
-  border-color: rgba(45, 212, 191, 0.4);
+  background: #e2e8f0;
+  border-color: #06b6d4;
+  color: #0284c7;
 }
 
 .handsfree-dock-voice-btn.active {
-  background: rgba(13, 148, 136, 0.2);
-  border-color: #2dd4bf;
-  color: #2dd4bf;
+  background: rgba(6, 182, 212, 0.14);
+  border-color: #06b6d4;
+  color: #0284c7;
 }
 
 .handsfree-mic-svg-dock {
   width: 14px;
   height: 14px;
-  color: #2dd4bf; /* turquoise */
-  stroke: #2dd4bf;
+  color: #0284c7;
+  stroke: #0284c7;
 }
 
-/* Circular Send Button */
+/* Circular Send Button (Cyan/Teal Gradient) */
 .handsfree-dock-send-btn {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  background: #0d9488; /* turquoise teal */
+  background: linear-gradient(135deg, #06b6d4 0%, #0d9488 100%);
   border: none;
   display: flex;
   align-items: center;
@@ -545,27 +638,27 @@
   color: white;
   cursor: pointer;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.4);
-  transition: transform 0.15s ease, background 0.15s ease;
+  box-shadow: 0 2px 10px rgba(6, 182, 212, 0.38);
+  transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
 .handsfree-dock-send-btn:hover {
-  transform: scale(1.05);
-  background: #0f766e;
+  transform: scale(1.06);
+  opacity: 0.94;
 }
 
 .handsfree-dock-send-btn:active {
   transform: scale(0.96);
 }
 
-/* Expand Chevron Button (Image 4) */
+/* Expand Chevron Button */
 .handsfree-dock-expand-btn {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #94a3b8;
+  background: #f1f5f9;
+  border: 1px solid rgba(6, 182, 212, 0.25);
+  color: #64748b;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -575,110 +668,38 @@
 }
 
 .handsfree-dock-expand-btn:hover {
-  background: rgba(51, 65, 85, 0.9);
-  color: #2dd4bf;
-  border-color: rgba(45, 212, 191, 0.35);
-  transform: scale(1.06);
+  background: #e2e8f0;
+  color: #0284c7;
+  border-color: rgba(6, 182, 212, 0.45);
+  transform: scale(1.05);
 }
 
-/* ANIMATIONS */
-@keyframes orb-spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-@keyframes orb-spin-reverse {
-  0% { transform: rotate(360deg); }
-  100% { transform: rotate(0deg); }
-}
-
-@keyframes orb-pip-pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.35); opacity: 0.8; }
-}
-
-@keyframes wave-anim {
-  0% { transform: scaleY(0.4); }
-  100% { transform: scaleY(1.3); }
-}
-
-/* 4. REAL-TIME DOCK REPLY PILL & TTS SPEAKER BUTTON */
-.handsfree-dock-reply-pill {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  transform: translateX(-50%) translateY(10px);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(15, 23, 42, 0.94);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(45, 212, 191, 0.35);
-  border-radius: 9999px;
-  padding: 6px 16px;
-  color: #2dd4bf;
-  font-size: 12.5px;
-  font-weight: 600;
-  box-shadow: 
-    0 10px 25px rgba(0, 0, 0, 0.6),
-    0 0 16px rgba(13, 148, 136, 0.35);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  white-space: nowrap;
-  max-width: 90%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  z-index: 2147483647;
-}
-
-.handsfree-dock-reply-pill.visible {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
-.handsfree-dock-reply-pill.hearing {
-  border-color: rgba(6, 182, 212, 0.55);
-  color: #38bdf8;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), 0 0 16px rgba(6, 182, 212, 0.4);
-}
-
-.handsfree-dock-reply-pill.success {
-  border-color: rgba(45, 212, 191, 0.55);
-  color: #2dd4bf;
-}
-
-.handsfree-reply-icon {
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-}
-
+/* Speaker TTS Mute Button */
 .handsfree-dock-speaker-btn {
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #f1f5f9;
+  border: 1px solid rgba(6, 182, 212, 0.25);
   border-radius: 50%;
   width: 28px;
   height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
+  color: #64748b;
   cursor: pointer;
   flex-shrink: 0;
   transition: all 0.15s ease;
 }
 
 .handsfree-dock-speaker-btn:hover {
-  background: rgba(51, 65, 85, 0.9);
-  color: #2dd4bf;
+  background: #e2e8f0;
+  color: #0284c7;
+  border-color: rgba(6, 182, 212, 0.45);
 }
 
 .handsfree-dock-speaker-btn.active {
-  background: rgba(13, 148, 136, 0.2);
-  border-color: rgba(45, 212, 191, 0.4);
-  color: #2dd4bf;
+  background: rgba(6, 182, 212, 0.14);
+  border-color: #06b6d4;
+  color: #0284c7;
 }
 
 .handsfree-speaker-svg {
@@ -686,29 +707,21 @@
   height: 13px;
 }
 
-.handsfree-dock-input.hearing {
-  color: #00f5ff;
-}
-
-.handsfree-dock-input.hearing::placeholder {
-  color: #00f5ff;
-  text-shadow: 0 0 8px rgba(0, 245, 255, 0.5);
-  font-weight: 500;
-}
-
-/* Real-time Cyan Ghost Text Floating Reply Pill Above Dock */
+/* --------------------------------------------------------------------------
+   4. REAL-TIME FLOATING DOCK REPLY PILL (CYAN GHOST TEXT)
+   -------------------------------------------------------------------------- */
 .handsfree-dock-reply-pill {
   position: absolute;
   top: -38px;
   right: 0;
-  background: rgba(15, 23, 42, 0.94);
-  border: 1px solid rgba(45, 212, 191, 0.35);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 16px rgba(45, 212, 191, 0.2);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1.5px solid rgba(6, 182, 212, 0.4);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12), 0 0 16px rgba(6, 182, 212, 0.25);
   border-radius: 9999px;
   padding: 5px 14px;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
-  color: #2dd4bf;
+  color: #0284c7;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -717,8 +730,8 @@
   transform: translateY(8px);
   transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 2147483647;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .handsfree-dock-reply-pill.visible {
@@ -727,13 +740,13 @@
 }
 
 .handsfree-dock-reply-pill.hearing {
-  border-color: rgba(0, 245, 255, 0.6);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 20px rgba(0, 245, 255, 0.35);
-  color: #00f5ff;
+  border-color: rgba(0, 245, 255, 0.8);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14), 0 0 20px rgba(0, 245, 255, 0.45);
+  color: #0284c7;
 }
 
 .handsfree-dock-reply-pill.hearing .handsfree-reply-text {
-  color: #00f5ff;
+  color: #0284c7;
   text-shadow: 0 0 10px rgba(0, 245, 255, 0.65);
   max-width: 260px;
   overflow: hidden;
@@ -746,9 +759,57 @@
   animation: handsfree-dock-mic-pulse 1s ease-in-out infinite alternate;
 }
 
-@keyframes handsfree-dock-mic-pulse {
-  0% { transform: scale(1); filter: drop-shadow(0 0 2px #00f5ff); }
-  100% { transform: scale(1.15); filter: drop-shadow(0 0 8px #00f5ff); }
+.handsfree-dock-reply-pill.success {
+  border-color: rgba(6, 182, 212, 0.5);
+  color: #0284c7;
+}
+
+.handsfree-reply-icon {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
 }
 
 
+/* --------------------------------------------------------------------------
+   5. KEYFRAME ANIMATIONS
+   -------------------------------------------------------------------------- */
+@keyframes orb-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes orb-spin-reverse {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes corona-flare {
+  0% { transform: scale(0.95); opacity: 0.6; }
+  100% { transform: scale(1.15); opacity: 0.95; }
+}
+
+@keyframes corona-star-pulse {
+  0% { transform: scale(0.9); box-shadow: 0 0 8px #00f5ff, 0 0 14px #06b6d4; }
+  100% { transform: scale(1.25); box-shadow: 0 0 14px #00f5ff, 0 0 24px #06b6d4, 0 0 32px #2dd4bf; }
+}
+
+@keyframes corona-halo {
+  0% { transform: scale(0.9); opacity: 0.5; }
+  100% { transform: scale(1.18); opacity: 0.85; }
+}
+
+@keyframes orb-pip-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.35); opacity: 0.8; }
+}
+
+@keyframes wave-anim {
+  0% { transform: scaleY(0.4); }
+  100% { transform: scaleY(1.3); }
+}
+
+@keyframes handsfree-dock-mic-pulse {
+  0% { transform: scale(1); filter: drop-shadow(0 0 2px #00f5ff); }
+  100% { transform: scale(1.2); filter: drop-shadow(0 0 8px #00f5ff); }
+}
