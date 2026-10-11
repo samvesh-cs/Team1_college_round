@@ -9,7 +9,7 @@ export class VoiceController {
     this.mode = "command"; // "command" or "dictation"
     this.enabled = false;
     this.typingEnabled = false;
-    
+
     // Fast-path execution tracking for near-zero latency
     this.lastFastCommand = null;
     this.lastFastCommandTime = 0;
@@ -51,7 +51,7 @@ export class VoiceController {
           // IMMEDIATELY ABORT STT while TTS is talking to eliminate speaker pickup!
           try {
             if (this.recognition) this.recognition.abort();
-          } catch (e) {}
+          } catch (e) { }
         } else {
           // TTS finished, wait room acoustic margin and restart clean
           setTimeout(() => {
@@ -177,7 +177,7 @@ export class VoiceController {
         this.aiAgent.setEqualizerActive(false);
       }
     };
-    
+
     this.recognition.onerror = (event) => {
       // "aborted" is expected when we intentionally call recognition.abort() to wipe trailing buffer
       // "no-speech" is normal pause
@@ -207,7 +207,7 @@ export class VoiceController {
     if (this.recognition) {
       try {
         this.recognition.abort();
-      } catch (e) {}
+      } catch (e) { }
     }
     this.aiAgent.updateVoiceState(false);
   }
@@ -293,7 +293,7 @@ export class VoiceController {
         this.recognition.onend = null;
         this.recognition.onerror = null;
         this.recognition.abort();
-      } catch (e) {}
+      } catch (e) { }
       this.recognition = null;
     }
     this._initSpeechRecognition();
@@ -332,7 +332,7 @@ export class VoiceController {
     if (this.recognition) {
       try {
         this.recognition.start();
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // Periodically recycle cloud speech connection to prevent audio buffer latency bloat
@@ -353,7 +353,7 @@ export class VoiceController {
     if (this.recognition) {
       try {
         this.recognition.stop();
-      } catch (e) {}
+      } catch (e) { }
     }
     this.overlay.hide();
     this.aiAgent.updateVoiceState(false);
@@ -439,7 +439,7 @@ export class VoiceController {
         const activeInput = this._getActiveInput() || this._findSearchInput();
         if (activeInput) {
           this._submitActiveInput(activeInput);
-          try { activeInput.blur(); } catch (_) {}
+          try { activeInput.blur(); } catch (_) { }
         } else {
           this._pressEnter();
         }
@@ -455,7 +455,7 @@ export class VoiceController {
       if (command.type === "STOP_DICTATION" || command.type === "PRESS_ESCAPE") {
         const activeInput = this._getActiveInput() || this._findSearchInput();
         if (activeInput) {
-          try { activeInput.blur(); } catch (_) {}
+          try { activeInput.blur(); } catch (_) { }
         }
         this.setMode("command");
         this.overlay.show("command");
@@ -487,7 +487,7 @@ export class VoiceController {
       if (isControlEscape) {
         const activeInput = this._getActiveInput() || this._findSearchInput();
         if (activeInput) {
-          try { activeInput.blur(); } catch (_) {}
+          try { activeInput.blur(); } catch (_) { }
         }
         this.setMode("command");
         this.overlay.show("command");
@@ -643,7 +643,7 @@ export class VoiceController {
     const target = this._findScrollableContainer();
     try {
       window.scrollBy({ top: dy, behavior: "smooth" });
-    } catch (_) {}
+    } catch (_) { }
 
     if (target && target !== document.documentElement && target !== document.body) {
       try {
@@ -663,7 +663,7 @@ export class VoiceController {
         top: isTop ? 0 : (document.documentElement.scrollHeight || document.body.scrollHeight || 10000),
         behavior: "smooth"
       });
-    } catch (_) {}
+    } catch (_) { }
 
     try {
       const docEl = document.scrollingElement || document.documentElement;
@@ -673,7 +673,7 @@ export class VoiceController {
           behavior: "smooth"
         });
       }
-    } catch (_) {}
+    } catch (_) { }
 
     try {
       if (document.body) {
@@ -682,7 +682,7 @@ export class VoiceController {
           behavior: "smooth"
         });
       }
-    } catch (_) {}
+    } catch (_) { }
 
     if (target && target !== document.documentElement && target !== document.body) {
       try {
@@ -876,7 +876,7 @@ export class VoiceController {
       case "PAUSE":
         this.enabled = false;
         if (this.recognition) {
-          try { this.recognition.stop(); } catch (e) {}
+          try { this.recognition.stop(); } catch (e) { }
         }
         this.overlay.flashCommand("paused");
         this.aiAgent.addAgentMessage("Voice listening paused. Say 'resume' or click the mic button to reactivate.", "pause", "Listening paused");
@@ -912,7 +912,7 @@ export class VoiceController {
       if (chrome?.runtime?.sendMessage) {
         chrome.runtime.sendMessage({ type: command.type, payload: command.payload });
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   /* ----------------------------------------------------
@@ -975,7 +975,7 @@ export class VoiceController {
       let inserted = false;
       try {
         inserted = document.execCommand("insertText", false, cleanQuery);
-      } catch (_) {}
+      } catch (_) { }
       if (!inserted) {
         this._setInputValue(searchInput, cleanQuery);
       }
@@ -1070,11 +1070,11 @@ export class VoiceController {
         } else {
           form.submit();
         }
-      } catch (_) {}
+      } catch (_) { }
     } else {
       const submitBtn = input.parentElement?.querySelector('button[type="submit"], input[type="submit"], [aria-label*="search" i]');
       if (submitBtn) {
-        try { submitBtn.click(); } catch (_) {}
+        try { submitBtn.click(); } catch (_) { }
       }
     }
     this.overlay.flashCommand("Search / Enter submitted");
@@ -1101,7 +1101,7 @@ export class VoiceController {
     let rawElement = null;
     try {
       rawElement = document.elementFromPoint(x, y);
-    } catch (_) {}
+    } catch (_) { }
 
     if (
       !rawElement ||
@@ -1146,14 +1146,14 @@ export class VoiceController {
       try {
         targetElement.focus({ preventScroll: true });
       } catch (_) {
-        try { targetElement.focus(); } catch (e) {}
+        try { targetElement.focus(); } catch (e) { }
       }
       this.setMode("dictation");
       this.overlay.show("dictation");
       this.overlay.flashCommand("Search/Input active — speak to type");
     } else {
       if (typeof targetElement.click === "function") {
-        try { targetElement.click(); } catch (_) {}
+        try { targetElement.click(); } catch (_) { }
       }
     }
 
@@ -1216,7 +1216,7 @@ export class VoiceController {
               target = inputCandidate;
             }
           }
-        } catch (_) {}
+        } catch (_) { }
       }
     }
 
@@ -1247,7 +1247,7 @@ export class VoiceController {
         const end = target.selectionEnd ?? target.value.length;
         const val = target.value;
         const newVal = val.slice(0, start) + textToInsert + val.slice(end);
-        
+
         const setter = Object.getOwnPropertyDescriptor(
           window.HTMLInputElement.prototype, "value"
         )?.set || Object.getOwnPropertyDescriptor(
@@ -1262,7 +1262,7 @@ export class VoiceController {
 
         try {
           target.selectionStart = target.selectionEnd = start + textToInsert.length;
-        } catch (_) {}
+        } catch (_) { }
         target.dispatchEvent(new Event("input", { bubbles: true }));
         target.dispatchEvent(new Event("change", { bubbles: true }));
       } else if (target.isContentEditable) {
